@@ -62,7 +62,6 @@ public class AutomatonHelper {
 
     private TransitionLabel getTransitionLabel(String label) throws Exception {
         TransitionLabel transitionLabel = null;
-        System.out.println(transitionLabels);
         Proposition proposition = new Proposition(label);
         Set<Proposition> pr = new HashSet<Proposition>();
         pr.add(proposition);

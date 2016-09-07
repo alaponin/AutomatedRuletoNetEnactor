@@ -11,6 +11,7 @@ import java.util.Set;
 
 /**
  * Created by arnelaponin on 05/09/16.
+ * Code snippets taken from: https://github.com/RiccardoDeMasellis/FLLOAT
  */
 public class MarkingStateFactory implements StateFactory, Cloneable {
 
