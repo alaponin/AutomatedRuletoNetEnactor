@@ -1,7 +1,7 @@
-package convertor;
+package converter;
 
-import convertor.utils.AutomatonHelper;
-import convertor.utils.PetrinetUtils;
+import converter.utils.AutomatonHelper;
+import converter.utils.PetrinetUtils;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
 import org.processmining.models.graphbased.directed.petrinet.elements.Place;

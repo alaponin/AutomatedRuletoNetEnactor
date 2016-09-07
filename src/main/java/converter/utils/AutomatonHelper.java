@@ -1,9 +1,9 @@
-package convertor.utils;
+package converter.utils;
 
 import automaton.PossibleWorldWrap;
 import automaton.TransitionLabel;
-import convertor.automaton.MarkingStateFactory;
-import convertor.automaton.MarkingStateFactory.MarkingState;
+import converter.automaton.MarkingStateFactory;
+import converter.automaton.MarkingStateFactory.MarkingState;
 import net.sf.tweety.logics.pl.semantics.PossibleWorld;
 import net.sf.tweety.logics.pl.syntax.Proposition;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;

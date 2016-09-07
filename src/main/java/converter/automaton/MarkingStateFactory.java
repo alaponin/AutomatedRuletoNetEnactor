@@ -1,4 +1,4 @@
-package convertor.automaton;
+package converter.automaton;
 
 import org.processmining.models.semantics.petrinet.Marking;
 import rationals.Automaton;

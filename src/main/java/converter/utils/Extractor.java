@@ -1,4 +1,4 @@
-package convertor.utils;
+package converter.utils;
 
 import org.processmining.models.connections.GraphLayoutConnection;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;

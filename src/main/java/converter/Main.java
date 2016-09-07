@@ -1,6 +1,6 @@
-package convertor;
+package converter;
 
-import convertor.utils.Extractor;
+import converter.utils.Extractor;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
 import rationals.Automaton;
 

@@ -1,4 +1,4 @@
-package convertor.utils;
+package converter.utils;
 
 import net.sf.tweety.logics.pl.syntax.Proposition;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetEdge;
