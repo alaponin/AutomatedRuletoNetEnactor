@@ -164,7 +164,7 @@ public class MarkingStateFactory implements StateFactory, Cloneable {
         public boolean equals(Object o) {
             try {
                 MarkingState ms = (MarkingState) o;
-                return (ms.m.equals(((MarkingState) o).m)) && (ms.a == a);
+                return (ms.m.equals(m) && (ms.a == a) && ms.i == i);
             } catch (ClassCastException e) {
                 return false;
             }

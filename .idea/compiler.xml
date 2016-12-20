@@ -22,11 +22,13 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="true" />
+        <module name="flloat" />
         <module name="PNAutomataConverter" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="PNAutomataConverter" target="1.5" />
+    <bytecodeTargetLevel target="1.8">
+      <module name="flloat" target="1.8" />
+      <module name="PNAutomataConverter" target="1.8" />
     </bytecodeTargetLevel>
   </component>
 </project>

@@ -111,3 +111,10 @@ local.properties
 hs_err_pid*
 
 *.gv
+*.pnml
+
+synccomparison
+IncompatibilityDetector.java
+DifferenceResult.java
+TransitionPair.java
+target

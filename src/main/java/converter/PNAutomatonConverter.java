@@ -1,6 +1,7 @@
 package converter;
 
-import converter.utils.AutomatonHelper;
+import converter.automaton.MyAutomaton;
+import converter.utils.AutomatonBuilder;
 import converter.utils.PetrinetUtils;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
@@ -10,7 +11,6 @@ import org.processmining.models.semantics.petrinet.Marking;
 import org.processmining.models.semantics.petrinet.PetrinetExecutionInformation;
 import org.processmining.models.semantics.petrinet.PetrinetSemantics;
 import org.processmining.models.semantics.petrinet.impl.PetrinetSemanticsFactory;
-import rationals.Automaton;
 
 import java.util.*;
 
@@ -27,8 +27,8 @@ public class PNAutomatonConverter {
 
     public PNAutomatonConverter(PetrinetGraph net) {
         this.net = net;
-        markingsToVisit = new LinkedList<Marking>();
-        visitedMarkings = new ArrayList<Marking>();
+        markingsToVisit = new LinkedList<>();
+        visitedMarkings = new ArrayList<>();
         semantics = PetrinetSemanticsFactory.regularPetrinetSemantics(Petrinet.class);
         init();
     }
@@ -45,8 +45,8 @@ public class PNAutomatonConverter {
         semantics.initialize(net.getTransitions(), initialMarking);
     }
 
-    public Automaton convertToAutomaton() throws Exception {
-        AutomatonHelper automatonHelper = new AutomatonHelper(net);
+    public MyAutomaton convertToAutomaton() throws Exception {
+        AutomatonBuilder automatonBuilder = new AutomatonBuilder(net);
 
         //Algorithm taken from: http://cpntools.org/_media/book/covgraph.pdf (page 33)
         while(!markingsToVisit.isEmpty()) {
@@ -59,11 +59,11 @@ public class PNAutomatonConverter {
                 if (!visitedMarkings.contains(semantics.getCurrentState())) {
                     markingsToVisit.add(semantics.getCurrentState());
                 }
-                automatonHelper.addTransition(marking, transition.getLabel(), semantics.getCurrentState());
+                automatonBuilder.addTransition(marking, transition.getLabel(), semantics.getCurrentState());
                 semantics.setCurrentState(marking);
             }
         }
 
-        return automatonHelper.getAutomaton();
+        return automatonBuilder.getAutomaton();
     }
 }

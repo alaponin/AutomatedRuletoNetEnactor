@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/PNAutomataConverter.iml" filepath="$PROJECT_DIR$/PNAutomataConverter.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../LTLTransformationTool/flloat.iml" filepath="$PROJECT_DIR$/../LTLTransformationTool/flloat.iml" />
     </modules>
   </component>
 </project>
