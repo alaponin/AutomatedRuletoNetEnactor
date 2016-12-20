@@ -63,90 +63,7 @@ public class AutomatonUtils {
         return queue;
     }
 
-
-
-    private static List<State> getBadStates(Automaton automaton) {
-        Queue<State> toBeVisited = new LinkedList<>();
-        List<State> visited = new ArrayList<>();
-        toBeVisited.addAll(automaton.initials());
-        List<State> badStates = new ArrayList<>();
-        while (!toBeVisited.isEmpty()) {
-            State currentState = toBeVisited.poll();
-            visited.add(currentState);
-            Set<Transition> outGoingTransitions = automaton.delta(currentState);
-            for (Transition currentTransition : outGoingTransitions) {
-                State targetState = currentTransition.end();
-                Set<State> accessibleStates = automaton.accessibleStates(targetState);
-                if (!accessibleStates.containsAll(automaton.terminals())) {
-                    if (!badStates.contains(targetState)) {
-                        badStates.add(targetState);
-                    }
-                    accessibleStates.stream().filter(s -> !badStates.contains(s)).forEach(badStates::add);
-                    badStates.stream().filter(s -> !visited.contains(s)).forEach(visited::add);
-                } else {
-                    if (!toBeVisited.contains(targetState) && !badStates.contains(targetState)) {
-                        toBeVisited.add(targetState);
-                    }
-
-                }
-            }
-        }
-
-        return badStates;
-    }
-
-    private static List<State> getGoodStates(Automaton automaton) {
-        List<State> badStates = getBadStates(automaton);
-        Queue<State> toBeVisited = new LinkedList<>();
-        List<State> visited = new ArrayList<>();
-        toBeVisited.addAll(automaton.initials());
-        List<State> goodStates = new ArrayList<>();
-        while (!toBeVisited.isEmpty()) {
-            State currentState = toBeVisited.poll();
-            visited.add(currentState);
-            Set<Transition> outGoingTransitions = automaton.delta(currentState);
-            for (Transition currentTransition : outGoingTransitions) {
-                State targetState = currentTransition.end();
-                Set<State> accessibleStates = automaton.accessibleStates(targetState);
-                if (accessibleStates.containsAll(automaton.terminals()) && !setContainsSubList(accessibleStates, badStates)) {
-                    if (!goodStates.contains(targetState)) {
-                        goodStates.add(targetState);
-                    }
-                    accessibleStates.stream().filter(s -> !goodStates.contains(s)).forEach(goodStates::add);
-                    goodStates.stream().filter(s -> !visited.contains(s)).forEach(visited::add);
-                }  else {
-                    if (!toBeVisited.contains(targetState) && !goodStates.contains(targetState)) {
-                        toBeVisited.add(targetState);
-                    }
-                }
-
-            }
-        }
-
-        return goodStates;
-    }
-
-    public static Map<State, List<Transition>> getSemiBadStates(Automaton automaton) {
-        Map<State, List<Transition>> semiBadStates = new HashMap<>();
-
-        Set<State> allStates = automaton.states();
-
-        List<State> badStates = getBadStates(automaton);
-        List<State> goodStates = getGoodStates(automaton);
-
-        List<State> potentialSemiBadStates = allStates.stream().filter(s -> !goodStates.contains(s) && !badStates.contains(s)).collect(Collectors.toList());
-        for (State potential : potentialSemiBadStates) {
-            Set<Transition> transitions = automaton.delta(potential);
-            transitions.stream().filter(transition -> badStates.contains(transition.end())).forEach(transition -> {
-                insertTransitionToMapList(semiBadStates, potential, transition);
-            });
-        }
-        System.out.println("SEMI-BAD STATES: " + semiBadStates);
-        return semiBadStates;
-    }
-
     private static Map<PossibleWorldWrap, Map<Transition, TransitionMarkingPair>> getMarkingsBasedOnStates(MyAutomaton original, Automaton intersection, Map<State, List<Transition>> originStates, AutomatonSource source) {
-        Map<Transition, TransitionMarkingPair> semiBadFromOriginal = new HashMap<>();
         Map<PossibleWorldWrap, Map<Transition, TransitionMarkingPair>> sortedMarkings = new HashMap<>();
         Queue<StatePair> toBeVisited = getInitialStatePairInQueue(original, intersection);
         Map<State, List<Place>> originalMarkings = original.getMarkingMap();
@@ -179,7 +96,6 @@ public class AutomatonUtils {
                                         break;
                                 }
 
-                                semiBadFromOriginal.put(transition, markingPair);
                                 if (sortedMarkings.containsKey(transition.label())) {
                                     Map<Transition, TransitionMarkingPair> transitionMarkingPairMap = sortedMarkings.get(transition.label());
                                     transitionMarkingPairMap.put(transition, markingPair);
@@ -199,8 +115,8 @@ public class AutomatonUtils {
             }
 
         }
-        System.out.println("Transition marking PAIR, which has to be modified: " + semiBadFromOriginal);
-        System.out.println("Updated: " + sortedMarkings);
+
+        System.out.println("Sorted markings: " + sortedMarkings);
 
         return sortedMarkings;
     }
