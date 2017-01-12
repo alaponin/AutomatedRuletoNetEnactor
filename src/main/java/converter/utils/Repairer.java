@@ -41,15 +41,40 @@ public class Repairer {
             Place place = net.addPlace(label);
             net.addArc(source, place);
             net.addArc(place, target);
-            Place place1 = net.addPlace("p");
-            net.addArc(target, place1);
-            for (Transition t : transitionsAfterSource) {
-                net.addArc(place1, t);
+            if (transitionsAfterSource.size() == 1) {
+                Transition t = transitionsAfterSource.iterator().next();
+                if (!areTransitionsConnected(net, target, t)) {
+                    addNewPlace(net, target, transitionsAfterSource);
+                }
+            } else {
+                addNewPlace(net, target, transitionsAfterSource);
             }
-
         }
         PetrinetUtils.exportPetriNetToPNML("test_repair_OF_NEW_ALGORITHM_DEUX.pnml", net);
         return net;
+    }
+
+    private static boolean areTransitionsConnected(PetrinetGraph net, Transition t1, Transition t2) {
+        Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> outEdgesFromT1 = net.getOutEdges(t1);
+        Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> inEdgesToT2 = net.getInEdges(t2);
+        for (PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode> outEdge : outEdgesFromT1) {
+            Place place1 = (Place) outEdge.getTarget();
+            for (PetrinetEdge inEdge : inEdgesToT2) {
+                Place place2 = (Place) inEdge.getSource();
+                if (place1.equals(place2)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static void addNewPlace(PetrinetGraph net, Transition target, Set<Transition> transitionsAfterSource) {
+        Place place1 = net.addPlace("p");
+        net.addArc(target, place1);
+        for (Transition t : transitionsAfterSource) {
+            net.addArc(place1, t);
+        }
     }
 
     public static PetrinetGraph repair(PetrinetGraph net, Place place, Place placeToRemove) throws Exception {
