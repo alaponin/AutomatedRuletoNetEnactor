@@ -30,6 +30,7 @@ public class InformationWrapper {
     private List<State> goodStates;
     private Map<State, List<Transition>> semiBadStates;
     private Map<State, List<Transition>> badStatesWithTransitions;
+    private Stack<SemiBadFront> fronts;
 
     public InformationWrapper(Automaton declarative, PetrinetGraph net) throws Exception {
         this.declarative = declarative;
@@ -43,8 +44,13 @@ public class InformationWrapper {
         this.badStates = findBadStates(this.reducedIntersection);
         this.goodStates = findGoodStates(this.reducedIntersection);
         this.semiBadStates = findSemiBadStates(this.reducedIntersection);
-        this.badStatesWithTransitions = getBadStatesWithTransitions(this.reducedIntersection);
+
+
+        if (!reducedIntersection.terminals().isEmpty()) {
+            this.badStatesWithTransitions = getBadStatesWithTransitions(this.reducedIntersection);
+        }
         this.trimmedIntersectionWithMarkings = findTrimmedIntersectionWithMarkings();
+        fronts = new Stack<>();
     }
 
 
@@ -88,6 +94,12 @@ public class InformationWrapper {
     private Automaton createReducedIntersection(MyAutomaton procedural, Automaton declarative) {
         Automaton intersection = AutomatonOperationUtils.getIntersection(procedural, declarative);
         return AutomatonOperationUtils.getReduced(intersection);
+    }
+
+    public SemiBadFront getFirstSemiBadFront() {
+        SemiBadFront firstSemiBadFront = new SemiBadFront(semiBadStates, this.getSemiBadMarkingsFromIntersection());
+        fronts.add(firstSemiBadFront);
+        return firstSemiBadFront;
     }
 
     private List<State> findBadStates(Automaton reducedIntersection) {

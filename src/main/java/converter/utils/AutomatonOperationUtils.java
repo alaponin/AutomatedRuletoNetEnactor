@@ -74,6 +74,10 @@ public class AutomatonOperationUtils {
 
         List<Transition> semiBadTransitions = troubledTransitionsList.stream().flatMap(List::stream).collect(Collectors.toList());
 
+        //TODO:Remove this.
+        Automaton trimIntersection = AutomatonOperationUtils.getTrimmed(informationWrapper.getReducedIntersection());
+        utils.AutomatonUtils.printAutomaton(trimIntersection, "automaton_trim.gv");
+
         drawColoredAutomaton(informationWrapper.getReducedIntersection(), fileName, badStates, badTransitions, semiBadStates, semiBadTransitions);
     }
 

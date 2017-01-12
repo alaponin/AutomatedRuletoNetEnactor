@@ -21,7 +21,6 @@ import java.util.*;
  */
 public class ModelRepairer {
 
-    //public static Petrinet repairXorBranch(PetrinetGraph net, MyAutomaton procedural, Automaton declarative) throws Exception {
     public static Petrinet repairXorBranch(InformationWrapper informationWrapper) throws Exception {
         PetrinetGraph net = informationWrapper.getNet();
         MyAutomaton procedural = informationWrapper.getProceduralAutomaton();
@@ -64,7 +63,6 @@ public class ModelRepairer {
         return net;
     }
 
-    //public static Petrinet repairProcedural(PetrinetGraph net, MyAutomaton procedural, Automaton declarative) throws Exception {
     public static Petrinet repairProcedural(InformationWrapper informationWrapper) throws Exception {
         MyAutomaton procedural = informationWrapper.getProceduralAutomaton();
         Automaton reducedIntersection = informationWrapper.getReducedIntersection();
@@ -74,7 +72,7 @@ public class ModelRepairer {
         //List of semi-bad (gold) states are found.
         Map<State, List<Transition>> semiBadStates = informationWrapper.getSemiBadStates();
         //Markings are added to the semi-bad states.
-        Map<PossibleWorldWrap, Map<Transition, TransitionMarkingPair>> semiBadStatesWithMarkings = informationWrapper.getSemiBadMarkingsFromOriginal();
+        Map<PossibleWorldWrap, Map<Transition, TransitionMarkingPair>> semiBadStatesWithMarkings = informationWrapper.getSemiBadMarkingsFromIntersection();
 
         AutomatonOperationUtils.colorAutomatonStates(informationWrapper, "automaton_coloured_proc.gv");
 
