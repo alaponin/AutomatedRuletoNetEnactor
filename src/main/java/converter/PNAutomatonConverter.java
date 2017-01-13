@@ -1,6 +1,7 @@
 package converter;
 
 import converter.automaton.MyAutomaton;
+import converter.petrinet.CanNotConvertPNToAutomatonException;
 import converter.utils.AutomatonBuilder;
 import converter.utils.PetrinetUtils;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
@@ -56,6 +57,18 @@ public class PNAutomatonConverter {
             List<Transition> executableTransitions = (List<Transition>) semantics.getExecutableTransitions();
             for (Transition transition : executableTransitions) {
                 PetrinetExecutionInformation executionInformation = (PetrinetExecutionInformation) semantics.executeExecutableTransition(transition);
+                Marking currentState = semantics.getCurrentState();
+
+                Iterator<Place> placeIterator = currentState.iterator();
+                List<Place> markingPlace = new ArrayList<>();
+                while (placeIterator.hasNext()) {
+                    Place place = placeIterator.next();
+                    markingPlace.add(place);
+                }
+                Set<Place> markingSet = new HashSet<>(markingPlace);
+                if (markingSet.size() < markingPlace.size()) {
+                    throw new CanNotConvertPNToAutomatonException("There are deadlocks in the Petri net.");
+                }
                 if (!visitedMarkings.contains(semantics.getCurrentState())) {
                     markingsToVisit.add(semantics.getCurrentState());
                 }

@@ -2,6 +2,7 @@ package converter;
 
 import automaton.PossibleWorldWrap;
 import converter.automaton.*;
+import converter.petrinet.CanNotConvertPNToAutomatonException;
 import converter.utils.*;
 import net.sf.tweety.logics.pl.syntax.Proposition;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
@@ -121,10 +122,15 @@ public class ModelRepairer {
 
                                 Petrinet repairedCandidate = (Petrinet) Repairer.repair(cloneNet, getPlaceFromCloneNet(cloneNet, p), problematicPlaceClone);
                                 String explanation = "removing_" + problematicPlace.getLabel();
-
+                                System.out.println("Repair has been finished...");
                                 if (checkIfGroupHasBeenRepaired(informationWrapper.getDeclarativeAutomaton(), transitionLabel, repairedCandidate, explanation)) {
+                                    System.out.println("Checking repair results.....");
                                     repairedCandidates.push(repairedCandidate);
                                     problematicPlaces.clear();
+                                    //TODO: For some markings, the execution of the program gets stuck, that should be fixed.
+                                    //markingFromWhereToRepair.clear();
+                                    System.out.println("Fronts might not be empty... " + fronts);
+                                    System.out.println("Markings might not be empty... " + markingsForGroup.keySet());
                                 }
 
                             }
@@ -143,6 +149,7 @@ public class ModelRepairer {
             Petrinet finalCandidate = repairedCandidates.peek();
             InformationWrapper finalWrapper = checkIfCandidateFullyConformsToRules(informationWrapper.getDeclarativeAutomaton(), finalCandidate, "_after_final_removal");
             if (finalWrapper.getSemiBadStates().isEmpty()) {
+                System.out.println("Found a repaired model!!!!");
                 repairedPetriNet = finalCandidate;
             }
 
@@ -161,12 +168,15 @@ public class ModelRepairer {
     }
 
     private static boolean checkIfGroupHasBeenRepaired(Automaton declarative, PossibleWorldWrap transitionLabel, Petrinet repairedCandidate, String explanation) throws Exception {
+        try {
+            InformationWrapper repairedWrapper = new InformationWrapper(declarative, repairedCandidate);
+            Map<PossibleWorldWrap, Map<Transition, TransitionMarkingPair>> semiBadStatesWithMarkings = repairedWrapper.getSemiBadMarkingsFromOriginal();
 
-        InformationWrapper repairedWrapper = new InformationWrapper(declarative, repairedCandidate);
+            return !semiBadStatesWithMarkings.containsKey(transitionLabel);
+        } catch (CanNotConvertPNToAutomatonException exception) {
+            return false;
+        }
 
-        Map<PossibleWorldWrap, Map<Transition, TransitionMarkingPair>> semiBadStatesWithMarkings = repairedWrapper.getSemiBadMarkingsFromOriginal();
-
-        return !semiBadStatesWithMarkings.containsKey(transitionLabel);
     }
 
     public static InformationWrapper checkIfCandidateFullyConformsToRules(Automaton declarative, Petrinet repairedCandidate, String explanation) throws Exception {
@@ -191,8 +201,8 @@ public class ModelRepairer {
         return candidateWrapper;
     }
 
-    public static void addSyncPointsToParallelBranches(Petrinet net, Automaton declarative, Map<PossibleWorldWrap, PossibleWorldWrap> repairSourceTargetPair) {
-        Petrinet cloneNet = PetrinetFactory.clonePetrinet(net);
+    public static void addSyncPointsToParallelBranches(InformationWrapper informationWrapper, Map<PossibleWorldWrap, PossibleWorldWrap> repairSourceTargetPair) {
+        Petrinet cloneNet = PetrinetFactory.clonePetrinet((Petrinet) informationWrapper.getNet());
 
         System.out.println("Repair: " + repairSourceTargetPair);
         Map<org.processmining.models.graphbased.directed.petrinet.elements.Transition, org.processmining.models.graphbased.directed.petrinet.elements.Transition> netRepairPair = new HashMap<>();
@@ -220,7 +230,7 @@ public class ModelRepairer {
         PetrinetGraph syncedNet = Repairer.putSyncPoints(cloneNet, netRepairPair);
 
         try {
-            InformationWrapper syncedWrapper = checkIfCandidateFullyConformsToRules(declarative, (Petrinet) syncedNet, "after_sync");
+            InformationWrapper syncedWrapper = checkIfCandidateFullyConformsToRules(informationWrapper.getDeclarativeAutomaton(), (Petrinet) syncedNet, "after_sync");
             if (syncedWrapper.getSemiBadStates().isEmpty()) {
                 System.out.println("AND BRANCHES HAVE BEEN SUCCESSFULLY REPAIRED!");
                 String repairedFileName = syncedNet.getLabel() + "_repaired_fully.pnml";
@@ -229,7 +239,7 @@ public class ModelRepairer {
                 PetrinetUtils.exportPetriNetToPNML("test_repair_before_flattening.pnml", syncedNet);
                 System.out.println("Going into flattening area!");
 
-                Petrinet repairedPetriNet = ModelRepairer.repairProcedural(syncedWrapper);
+                Petrinet repairedPetriNet = ModelRepairer.repairProcedural(informationWrapper);
                 String repairedFileName = repairedPetriNet.getLabel() + "_repaired_fully.pnml";
                 PetrinetUtils.exportPetriNetToPNML(repairedFileName, repairedPetriNet);
 

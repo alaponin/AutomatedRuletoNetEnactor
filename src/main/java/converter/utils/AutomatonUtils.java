@@ -6,7 +6,6 @@ import converter.automaton.*;
 import main.LTLfAutomatonResultWrapper;
 import net.sf.tweety.logics.pl.syntax.Proposition;
 import net.sf.tweety.logics.pl.syntax.PropositionalSignature;
-import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
 import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import rationals.Automaton;
@@ -14,7 +13,6 @@ import rationals.State;
 import rationals.Transition;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Created by arnelaponin on 06/10/2016.
@@ -225,7 +223,7 @@ public class AutomatonUtils {
             }
         }
 
-        ModelRepairer.addSyncPointsToParallelBranches((Petrinet) net, informationWrapper.getDeclarativeAutomaton(), repairSourceTargetPair);
+        ModelRepairer.addSyncPointsToParallelBranches(informationWrapper, repairSourceTargetPair);
     }
 
     private static boolean checkXorness(PetrinetGraph net, MyAutomaton procedural, PossibleWorldWrap label1, PossibleWorldWrap label2) {

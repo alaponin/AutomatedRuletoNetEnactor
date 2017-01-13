@@ -18,10 +18,10 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
 
-        String petriNetFile = "usecase7.pnml";
+        String petriNetFile = "usecase5.pnml";
         //(G (E -> (F f))) && (G(E -> F J)) (G (C -> (X (!D))))
         //String ltlFormula = "G (t1 -> (F B))";
-        String ltlFormula = "(G ((K) -> (F (N)))) && (G ((S) -> (F (z))))";
+        String ltlFormula = "(G ((g) -> (F (D))))";
         String optionalSource = "(F S) -> (G (!J))";
         // (G ((K) -> (F (N)))) && (G ((Y) -> (F (z)))) && (G ((S) -> (F (g)))) usecase 13
         // (G ((B) -> (X (C)))) && (G ((C) -> (X (g)))) && (G ((E) -> (X (f))))
@@ -105,6 +105,9 @@ public class Main {
     //private static void repairXorSyncFlattening(PetrinetGraph net, MyAutomaton automaton, Automaton declareAutomaton) throws Exception {
     private static void repairXorSyncFlattening(InformationWrapper informationWrapper) throws Exception {
         informationWrapper.colourAutomaton();
+        String label = informationWrapper.getNet().getLabel();
+        String tsFileName = label + ".sg";
+        TSFileConverter.TS2File(AutomatonOperationUtils.getTrimmed(informationWrapper.getReducedIntersection()), tsFileName);
         Petrinet netWithRemovedBranches = ModelRepairer.repairXorBranch(informationWrapper);
 
         InformationWrapper updatedWrapper = ModelRepairer.checkIfCandidateFullyConformsToRules(informationWrapper.getDeclarativeAutomaton(), netWithRemovedBranches, "after_removing_unused_xor");
