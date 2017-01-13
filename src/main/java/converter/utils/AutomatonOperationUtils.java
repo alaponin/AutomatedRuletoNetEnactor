@@ -77,6 +77,9 @@ public class AutomatonOperationUtils {
         //TODO:Remove this.
         Automaton trimIntersection = AutomatonOperationUtils.getTrimmed(informationWrapper.getReducedIntersection());
         utils.AutomatonUtils.printAutomaton(trimIntersection, "automaton_trim.gv");
+        String label = informationWrapper.getNet().getLabel();
+        String tsFileName = label + ".sg";
+        TSFileConverter.TS2File(trimIntersection, tsFileName);
 
         drawColoredAutomaton(informationWrapper.getReducedIntersection(), fileName, badStates, badTransitions, semiBadStates, semiBadTransitions);
     }

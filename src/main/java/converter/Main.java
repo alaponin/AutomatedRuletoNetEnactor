@@ -18,10 +18,10 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
 
-        String petriNetFile = "usecase6.pnml";
+        String petriNetFile = "usecase7.pnml";
         //(G (E -> (F f))) && (G(E -> F J)) (G (C -> (X (!D))))
         //String ltlFormula = "G (t1 -> (F B))";
-        String ltlFormula = "(G ((B) -> (F (C))))";
+        String ltlFormula = "(G ((K) -> (F (N)))) && (G ((S) -> (F (z))))";
         String optionalSource = "(F S) -> (G (!J))";
         // (G ((K) -> (F (N)))) && (G ((Y) -> (F (z)))) && (G ((S) -> (F (g)))) usecase 13
         // (G ((B) -> (X (C)))) && (G ((C) -> (X (g)))) && (G ((E) -> (X (f))))

@@ -112,6 +112,7 @@ hs_err_pid*
 
 *.gv
 *.pnml
+*.sg
 
 synccomparison
 IncompatibilityDetector.java
