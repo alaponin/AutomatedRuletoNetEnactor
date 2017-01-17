@@ -12,7 +12,6 @@ import java.util.*;
 public class TarjanAlgorithm {
 
     private Set<State> states;
-    private Map<State, Integer> indexMap;
     private Map<State, Integer> lowLinkMap;
     private Map<State, Integer> id;
     private List<State> visited;
@@ -22,7 +21,6 @@ public class TarjanAlgorithm {
 
     public TarjanAlgorithm(Automaton automaton) {
         states = automaton.states();
-        indexMap = new HashMap<>();
         lowLinkMap = new HashMap<>();
         id = new HashMap<>();
         visited = new ArrayList<>();
@@ -30,7 +28,6 @@ public class TarjanAlgorithm {
         pre = 0;
         count = 0;
         for (State state : states) {
-            indexMap.put(state,0);
             lowLinkMap.put(state,0);
         }
         for (State state : states) {
