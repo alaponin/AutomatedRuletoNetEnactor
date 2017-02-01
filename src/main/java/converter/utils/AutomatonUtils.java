@@ -2,10 +2,13 @@ package converter.utils;
 
 import automaton.PossibleWorldWrap;
 import converter.ModelRepairer;
+import converter.PNAutomatonConverter;
 import converter.automaton.*;
+import converter.petrinet.NumberOfStatesDoesNotMatchException;
 import main.LTLfAutomatonResultWrapper;
 import net.sf.tweety.logics.pl.syntax.Proposition;
 import net.sf.tweety.logics.pl.syntax.PropositionalSignature;
+import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
 import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import rationals.Automaton;
@@ -19,7 +22,7 @@ import java.util.*;
  */
 public class AutomatonUtils {
 
-    public static Stack<StatePair> getInitialStatePairInStack(Automaton a1, Automaton a2) {
+    public static Stack<StatePair> getInitialStatePairInStack(Automaton a1, Automaton a2) throws NumberOfStatesDoesNotMatchException {
         Stack<StatePair> stack = new Stack<>();
         Set<State> a1InitialStates = a1.initials();
         Set<State> a2InitialStates = a2.initials();
@@ -31,11 +34,7 @@ public class AutomatonUtils {
                 stack.push(statePair);
             }
         } else {
-            try {
-                throw new Exception("The number of initial states is not equal!");
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            throw new NumberOfStatesDoesNotMatchException("The number of states does not match! The intersection might be empty!");
         }
         return stack;
     }
@@ -227,8 +226,9 @@ public class AutomatonUtils {
     }
 
     private static boolean checkXorness(PetrinetGraph net, MyAutomaton procedural, PossibleWorldWrap label1, PossibleWorldWrap label2) {
-        String firstLabel = label1.toString().substring(1,2);
-        String secondLabel = label2.toString().substring(1,2);
+        //TODO: This transition label conversion might cause problems.
+        String firstLabel = label1.toString().replace("[","").replace("]","");
+        String secondLabel = label2.toString().replace("[","").replace("]","");
         System.out.println(firstLabel + ", " + secondLabel);
         String rule = "(F " + firstLabel + ") -> (G (!" + secondLabel + "))";
         System.out.println(rule);
@@ -246,8 +246,7 @@ public class AutomatonUtils {
         Automaton ruleAutomaton = ltlfARW.getAutomaton();
         Automaton negatedRuleAutomaton = AutomatonOperationUtils.getNegated(ruleAutomaton);
         Automaton intersection = AutomatonOperationUtils.getIntersection(procedural, negatedRuleAutomaton);
-        String fileName = "automaton_XOR_rule_" + firstLabel + "_" + secondLabel + "_intersection.gv";
-        utils.AutomatonUtils.printAutomaton(intersection, fileName);
+        
         return intersection.terminals().isEmpty();
 
     }
@@ -283,5 +282,17 @@ public class AutomatonUtils {
             stateTransitionMap.put(state, t);
         }
         return stateTransitionMap;
+    }
+
+    public static void checkLanguage(MyAutomaton originalNetAutomaton, Automaton declareAutomaton, Petrinet repairedNet) throws Exception {
+        PNAutomatonConverter converter = new PNAutomatonConverter(repairedNet);
+        MyAutomaton repairedNetAutomaton = converter.convertToAutomaton();
+
+        Automaton originalIntersectionAutomaton = AutomatonOperationUtils.getIntersection(originalNetAutomaton, declareAutomaton);
+
+        Automaton negatedRepairedIntersection = AutomatonOperationUtils.getNegated(repairedNetAutomaton);
+
+        Automaton repairedIntersectionAutomaton = AutomatonOperationUtils.getIntersection(originalIntersectionAutomaton, negatedRepairedIntersection);
+        utils.AutomatonUtils.printAutomaton(repairedIntersectionAutomaton, "automaton_neg_intersection_check.gv");
     }
 }
