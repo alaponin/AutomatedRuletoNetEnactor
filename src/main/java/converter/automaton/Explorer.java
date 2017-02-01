@@ -1,9 +1,12 @@
 package converter.automaton;
 
 import automaton.PossibleWorldWrap;
+import converter.petrinet.NoLabelInPetriNetException;
+import converter.petrinet.NumberOfStatesDoesNotMatchException;
 import converter.utils.AutomatonBuilder;
 import converter.utils.AutomatonUtils;
 import rationals.Automaton;
+import rationals.NoSuchStateException;
 import rationals.Transition;
 
 import java.util.Set;
@@ -31,11 +34,11 @@ public class Explorer {
         }
     }
 
-    private void init() throws Exception {
+    private void init() throws NumberOfStatesDoesNotMatchException {
         toBeVisited = AutomatonUtils.getInitialStatePairInStack(original, product);
     }
 
-    public MyAutomaton addMarkingsFromOriginal() throws Exception {
+    public MyAutomaton addMarkingsFromOriginal() throws NoLabelInPetriNetException, NoSuchStateException {
         AutomatonBuilder automatonBuilder = new AutomatonBuilder(original);
         while (!toBeVisited.isEmpty()) {
             StatePair statePair = toBeVisited.pop();
@@ -46,7 +49,10 @@ public class Explorer {
             for (Transition productTransition : productOutgoingTransitions) {
                 for (Transition originalTransition : originalOutgoingTransitions) {
                     if (productTransition.label().equals(originalTransition.label())) {
-                        toBeVisited.push(new StatePair(originalTransition.end(), productTransition.end()));
+                        StatePair toBeVisitedStatePair = new StatePair(originalTransition.end(), productTransition.end());
+                        if (!visited.contains(toBeVisitedStatePair)) {
+                            toBeVisited.push(toBeVisitedStatePair);
+                        }
                         MarkingStateFactory.MarkingState markingStateOriginal = (MarkingStateFactory.MarkingState) statePair.getS1();
                         MarkingStateFactory.MarkingState markingStateTarget = (MarkingStateFactory.MarkingState) originalTransition.end();
                         String label = getPossibleWorldWrapLabel((PossibleWorldWrap) productTransition.label());
