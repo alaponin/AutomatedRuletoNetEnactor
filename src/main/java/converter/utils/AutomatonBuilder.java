@@ -5,6 +5,7 @@ import automaton.TransitionLabel;
 import converter.automaton.MarkingStateFactory;
 import converter.automaton.MarkingStateFactory.MarkingState;
 import converter.automaton.MyAutomaton;
+import converter.petrinet.NoLabelInPetriNetException;
 import net.sf.tweety.logics.pl.semantics.PossibleWorld;
 import net.sf.tweety.logics.pl.syntax.Proposition;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
@@ -12,7 +13,7 @@ import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import org.processmining.models.semantics.petrinet.Marking;
 
 import rationals.Automaton;
-import rationals.State;
+import rationals.NoSuchStateException;
 import rationals.Transition;
 
 import java.util.ArrayList;
@@ -82,7 +83,7 @@ public class AutomatonBuilder {
 
     }
 
-    public void addTransition(Marking source, String transitionLabel, Marking target) throws Exception {
+    public void addTransition(Marking source, String transitionLabel, Marking target) throws NoLabelInPetriNetException, NoSuchStateException {
 
         MarkingState sourceState = (MarkingState) stateFactory.create(source);
         MarkingState targetState = (MarkingState) stateFactory.create(target);
@@ -90,14 +91,14 @@ public class AutomatonBuilder {
         addTransitionToAutomaton(transitionLabel, sourceState, targetState);
     }
 
-    private void addTransitionToAutomaton(String transitionLabel, MarkingState sourceState, MarkingState targetState) throws Exception {
+    private void addTransitionToAutomaton(String transitionLabel, MarkingState sourceState, MarkingState targetState) throws NoLabelInPetriNetException, NoSuchStateException {
         Transition<TransitionLabel> t = new Transition<>(sourceState, getTransitionLabel(transitionLabel), targetState);
         automaton.addTransition(t);
         automaton.addMarkingList(sourceState, new ArrayList<>(sourceState.getMarking().baseSet()));
         automaton.addMarkingList(targetState, new ArrayList<>(targetState.getMarking().baseSet()));
     }
 
-    private TransitionLabel getTransitionLabel(String label) throws Exception {
+    private TransitionLabel getTransitionLabel(String label) throws NoLabelInPetriNetException {
         TransitionLabel transitionLabel = null;
         Proposition proposition = new Proposition(label);
         Set<Proposition> pr = new HashSet<Proposition>();
@@ -109,7 +110,7 @@ public class AutomatonBuilder {
             }
         }
         if (transitionLabel == null) {
-            throw new Exception("No such label in the petri net.");
+            throw new NoLabelInPetriNetException("No such label in the petri net.");
         }
         return transitionLabel;
     }
