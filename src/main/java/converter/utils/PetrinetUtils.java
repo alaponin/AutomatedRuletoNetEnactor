@@ -1,15 +1,11 @@
 package converter.utils;
 
-import converter.petrinet.*;
 import net.sf.tweety.logics.pl.syntax.Proposition;
-import org.apache.commons.beanutils.PropertyUtils;
 import org.processmining.contexts.cli.CLIContext;
 import org.processmining.contexts.cli.CLIPluginContext;
-import org.processmining.models.graphbased.directed.AbstractDirectedGraph;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetEdge;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetNode;
-import org.processmining.models.graphbased.directed.petrinet.elements.Arc;
 import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
 import org.processmining.models.graphbased.directed.petrinet.impl.PetrinetImpl;
@@ -17,7 +13,6 @@ import org.processmining.plugins.pnml.exporting.PnmlExportNetToPNML;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
 /**
