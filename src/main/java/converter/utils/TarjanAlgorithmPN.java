@@ -1,7 +1,5 @@
 package converter.utils;
 
-import automaton.PossibleWorldWrap;
-import net.sf.tweety.logics.pl.syntax.Proposition;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetEdge;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetNode;
@@ -12,6 +10,7 @@ import java.util.*;
 
 /**
  * Created by arnelaponin on 17/01/2017.
+ * Code adopted from here: http://algs4.cs.princeton.edu/42digraph/TarjanSCC.java.html
  */
 public class TarjanAlgorithmPN {
 
@@ -92,7 +91,6 @@ public class TarjanAlgorithmPN {
                 sscNumber = entry.getValue();
             }
         }
-        System.out.println(sscNumber);
         return sscNumber;
     }
 
