@@ -21,8 +21,10 @@ public class TarjanAlgorithmPN {
     private Stack<Transition> stack;
     private Integer pre;
     private Integer count;
+    private Map<Integer, List<Transition>> groups;
 
     public TarjanAlgorithmPN(PetrinetGraph net) {
+        groups = new HashMap<>();
         transitions = net.getTransitions();
         lowLinkMap = new HashMap<>();
         ssc = new HashMap<>();
@@ -38,6 +40,7 @@ public class TarjanAlgorithmPN {
                 dfs(net, transition);
             }
         }
+        groupTransitions();
     }
 
     private void dfs(PetrinetGraph net, Transition transition) {
@@ -75,6 +78,28 @@ public class TarjanAlgorithmPN {
         count++;
     }
 
+    private void groupTransitions() {
+        if (!ssc.isEmpty()) {
+            for (Map.Entry<Transition, Integer> entry : ssc.entrySet()) {
+                Transition transition = entry.getKey();
+                Integer sscNumber = entry.getValue();
+                if (groups.containsKey(sscNumber)) {
+                    List<Transition> transitions = groups.get(sscNumber);
+                    transitions.add(transition);
+                    groups.put(sscNumber, transitions);
+                } else {
+                    List<Transition> transitions = new ArrayList<>();
+                    transitions.add(transition);
+                    groups.put(sscNumber, transitions);
+                }
+            }
+        }
+    }
+
+    public Map<Integer, List<Transition>> getGroups() {
+        return groups;
+    }
+
     public Map<Transition, Integer> getIdMap() {
         return ssc;
     }
@@ -83,7 +108,7 @@ public class TarjanAlgorithmPN {
         return count;
     }
 
-    private Integer whichCycleIsTransitionPartOf(String transitionLabel) {
+    public Integer whichCycleIsTransitionPartOf(String transitionLabel) {
         Integer sscNumber = null;
         for (Map.Entry<Transition, Integer> entry : ssc.entrySet()) {
             Transition transition = entry.getKey();
