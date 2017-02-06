@@ -2,16 +2,19 @@ package converter;
 
 import converter.automaton.MyAutomaton;
 import converter.petrinet.CanNotConvertPNToAutomatonException;
+import converter.petrinet.NoLabelInPetriNetException;
 import converter.utils.AutomatonBuilder;
 import converter.utils.PetrinetUtils;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
 import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
+import org.processmining.models.semantics.IllegalTransitionException;
 import org.processmining.models.semantics.petrinet.Marking;
 import org.processmining.models.semantics.petrinet.PetrinetExecutionInformation;
 import org.processmining.models.semantics.petrinet.PetrinetSemantics;
 import org.processmining.models.semantics.petrinet.impl.PetrinetSemanticsFactory;
+import rationals.NoSuchStateException;
 
 import java.util.*;
 
@@ -46,7 +49,7 @@ public class PNAutomatonConverter {
         semantics.initialize(net.getTransitions(), initialMarking);
     }
 
-    public MyAutomaton convertToAutomaton() throws Exception {
+    public MyAutomaton convertToAutomaton() throws NoLabelInPetriNetException, NoSuchStateException, CanNotConvertPNToAutomatonException, IllegalTransitionException {
         AutomatonBuilder automatonBuilder = new AutomatonBuilder(net);
 
         //Algorithm taken from: http://cpntools.org/_media/book/covgraph.pdf (page 33)
