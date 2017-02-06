@@ -3,6 +3,7 @@ package converter;
 import automaton.PossibleWorldWrap;
 import converter.automaton.*;
 import converter.petrinet.CanNotConvertPNToAutomatonException;
+import converter.petrinet.NumberOfStatesDoesNotMatchException;
 import converter.utils.*;
 import net.sf.tweety.logics.pl.syntax.Proposition;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
@@ -109,29 +110,51 @@ public class ModelRepairer {
                     if (markingFromWhereToRepair != null) {
                         //Places from where the net could be repaired.
                         markingFromWhereToRepair.remove(problematicPlace);
+                        System.out.println("Marking from where to repair: " + markingFromWhereToRepair);
                         if (!markingFromWhereToRepair.isEmpty()) {
-                            for (Place p : markingFromWhereToRepair) {
-
+                            for (Place troubledPlace : markingFromWhereToRepair) {
+                                System.out.println("Troubled: " + troubledPlace);
                                 Petrinet currentNet = repairedCandidates.peek();
 
+                                //TODO: Check if cloning is necessary.
                                 //Petri net is cloned, so that the changes can figuratively be rolled back.
                                 Petrinet cloneNet = PetrinetFactory.clonePetrinet((Petrinet) currentNet);
+                                Petrinet originalCloneNet = PetrinetFactory.clonePetrinet((Petrinet) net);
+
 
                                 //To be safe, that cloned places correspond to real ones, a check is needed.
                                 Place problematicPlaceClone = getPlaceFromCloneNet(cloneNet, problematicPlace);
 
-                                Petrinet repairedCandidate = (Petrinet) Repairer.repair(cloneNet, getPlaceFromCloneNet(cloneNet, p), problematicPlaceClone);
-                                String explanation = "removing_" + problematicPlace.getLabel();
-                                System.out.println("Repair has been finished...");
-                                if (checkIfGroupHasBeenRepaired(informationWrapper.getDeclarativeAutomaton(), transitionLabel, repairedCandidate, explanation)) {
-                                    System.out.println("Checking repair results.....");
-                                    repairedCandidates.push(repairedCandidate);
-                                    problematicPlaces.clear();
-                                    //TODO: For some markings, the execution of the program gets stuck, that should be fixed.
-                                    //markingFromWhereToRepair.clear();
-                                    System.out.println("Fronts might not be empty... " + fronts);
-                                    System.out.println("Markings might not be empty... " + markingsForGroup.keySet());
+                                Place troubledPlaceClone = getPlaceFromCloneNet(cloneNet, troubledPlace);
+                                System.out.println("Troubled clone: " + troubledPlaceClone);
+
+                                //TODO: The order with which we take troubled places might matter.
+
+                                if (troubledPlaceClone != null && problematicPlaceClone != null) {
+                                    Petrinet repairedCandidate = (Petrinet) Repairer.repair(cloneNet, getPlaceFromCloneNet(cloneNet, troubledPlace), problematicPlaceClone);
+                                    Petrinet repairedCandidateNoFlat = (Petrinet) Repairer.repair(originalCloneNet, getPlaceFromCloneNet(originalCloneNet, troubledPlace), getPlaceFromCloneNet(originalCloneNet, problematicPlace));
+
+
+                                    String explanation = "removing_" + problematicPlace.getLabel();
+                                    String explanation2 = "no_flat_" + problematicPlace.getLabel();
+                                    System.out.println("Repair has been finished...");
+                                    if (checkIfGroupHasBeenRepaired(informationWrapper.getDeclarativeAutomaton(), transitionLabel, repairedCandidate, explanation)) {
+                                        System.out.println("Checking repair results.....");
+                                        repairedCandidates.push(repairedCandidate);
+                                        problematicPlaces.clear();
+                                        //TODO: For some markings, the execution of the program gets stuck, that should be fixed.
+                                        //markingFromWhereToRepair.clear();
+                                        System.out.println("Fronts might not be empty... " + fronts);
+                                        System.out.println("Markings might not be empty... " + markingsForGroup.keySet());
+                                    } else {
+                                        Optional<InformationWrapper> finalWrapperOptional = checkIfCandidateFullyConformsToRules(informationWrapper.getDeclarativeAutomaton(), repairedCandidateNoFlat, "_sync_no_flat");
+                                        if (finalWrapperOptional.isPresent() && finalWrapperOptional.get().getSemiBadStates().isEmpty()) {
+                                            System.out.println("MODEL HAS BEEN REPAIRED WITHOUT FLATTENING!!!");
+                                            return repairedCandidateNoFlat;
+                                        }
+                                    }
                                 }
+
 
                             }
                         }
@@ -141,14 +164,14 @@ public class ModelRepairer {
                     }
 
                 }
-
+                System.out.println("REPAIRED candidates: " + repairedCandidates);
 
 
             }
 
             Petrinet finalCandidate = repairedCandidates.peek();
-            InformationWrapper finalWrapper = checkIfCandidateFullyConformsToRules(informationWrapper.getDeclarativeAutomaton(), finalCandidate, "_after_final_removal");
-            if (finalWrapper.getSemiBadStates().isEmpty()) {
+            Optional<InformationWrapper> finalWrapperOptional = checkIfCandidateFullyConformsToRules(informationWrapper.getDeclarativeAutomaton(), finalCandidate, "_after_final_removal");
+            if (finalWrapperOptional.isPresent() && finalWrapperOptional.get().getSemiBadStates().isEmpty()) {
                 System.out.println("Found a repaired model!!!!");
                 repairedPetriNet = finalCandidate;
             }
@@ -158,7 +181,10 @@ public class ModelRepairer {
             //If the model has not been repaired a new semi-bad state front is created and added to the stack.
             if (repairedPetriNet == null) {
                 SemiBadFront nextFront = AutomatonUtils.getNextSemiBadFront(procedural, reducedIntersection, semiBadFront);
-                fronts.add(nextFront);
+                if (!nextFront.getStates().isEmpty()) {
+                    fronts.add(nextFront);
+                }
+
             } else {
                 System.out.println("MODEL HAS BEEN REPAIRED!!!");
             }
@@ -179,26 +205,34 @@ public class ModelRepairer {
 
     }
 
-    public static InformationWrapper checkIfCandidateFullyConformsToRules(Automaton declarative, Petrinet repairedCandidate, String explanation) throws Exception {
-        InformationWrapper candidateWrapper = new InformationWrapper(declarative, repairedCandidate);
+    //TODO: Name should be changed, this method only creates the wrapper.
+    public static Optional<InformationWrapper> checkIfCandidateFullyConformsToRules(Automaton declarative, Petrinet repairedCandidate, String explanation) throws Exception {
 
-        //Petrinet repairedPetriNet = null;
-        System.out.println("Starting to convert repaired candidate.");
-        PetrinetUtils.exportPetriNetToPNML("partially_repaired.pnml", repairedCandidate);
-        //PNAutomatonConverter converter = new PNAutomatonConverter(repairedCandidate);
-        //MyAutomaton repairedCandidateAutomaton = converter.convertToAutomaton();
-        System.out.println("Repaired candidate has been converted into an automaton.");
+        try {
+            InformationWrapper candidateWrapper = new InformationWrapper(declarative, repairedCandidate);
 
-        Automaton repairedCandidateReducedIntersection = candidateWrapper.getReducedIntersection();
+            System.out.println("Starting to convert repaired candidate.");
+            PetrinetUtils.exportPetriNetToPNML("partially_repaired.pnml", repairedCandidate);
+            //PNAutomatonConverter converter = new PNAutomatonConverter(repairedCandidate);
+            //MyAutomaton repairedCandidateAutomaton = converter.convertToAutomaton();
+            System.out.println("Repaired candidate has been converted into an automaton.");
 
-        Map<State, List<Transition>> semiBadStatesWithMarkings = candidateWrapper.getSemiBadStates();
-        Map<State, List<Transition>> badStatesWithMarkings = candidateWrapper.getBadStatesWithTransitions();
+            //Automaton repairedCandidateReducedIntersection = candidateWrapper.getReducedIntersection();
 
-        String repairAutomatonFileName = "automaton_" + explanation + ".gv";
+            //Map<State, List<Transition>> semiBadStatesWithMarkings = candidateWrapper.getSemiBadStates();
+            //Map<State, List<Transition>> badStatesWithMarkings = candidateWrapper.getBadStatesWithTransitions();
 
-        AutomatonOperationUtils.colorAutomatonStates(candidateWrapper, repairAutomatonFileName);
+            String repairAutomatonFileName = "automaton_" + explanation + ".gv";
 
-        return candidateWrapper;
+            if (candidateWrapper.getNet() == null) {
+                AutomatonOperationUtils.colorAutomatonStates(candidateWrapper, repairAutomatonFileName);
+            }
+
+            return Optional.ofNullable(candidateWrapper);
+        } catch (NumberOfStatesDoesNotMatchException e) {
+            return null;
+        }
+
     }
 
     public static void addSyncPointsToParallelBranches(InformationWrapper informationWrapper, Map<PossibleWorldWrap, PossibleWorldWrap> repairSourceTargetPair) {
@@ -230,20 +264,45 @@ public class ModelRepairer {
         PetrinetGraph syncedNet = Repairer.putSyncPoints(cloneNet, netRepairPair);
 
         try {
-            InformationWrapper syncedWrapper = checkIfCandidateFullyConformsToRules(informationWrapper.getDeclarativeAutomaton(), (Petrinet) syncedNet, "after_sync");
-            if (syncedWrapper.getSemiBadStates().isEmpty()) {
+            Optional<InformationWrapper> syncedWrapperOptional = checkIfCandidateFullyConformsToRules(informationWrapper.getDeclarativeAutomaton(), (Petrinet) syncedNet, "after_sync");
+
+            PetrinetUtils.exportPetriNetToPNML("test.pnml", syncedNet);
+            if (syncedWrapperOptional.isPresent() && syncedWrapperOptional.get().getSemiBadStates().isEmpty()) {
                 System.out.println("AND BRANCHES HAVE BEEN SUCCESSFULLY REPAIRED!");
                 String repairedFileName = syncedNet.getLabel() + "_repaired_fully.pnml";
                 PetrinetUtils.exportPetriNetToPNML(repairedFileName, syncedNet);
+                AutomatonUtils.checkLanguage(informationWrapper.getProceduralAutomaton(), informationWrapper.getDeclarativeAutomaton(), (Petrinet) syncedNet);
             } else {
-                PetrinetUtils.exportPetriNetToPNML("test_repair_before_flattening.pnml", syncedNet);
-                System.out.println("Going into flattening area!");
+                //Let's try to put sync points one by one.
+                Boolean oneGroupRepaired = false;
 
-                Petrinet repairedPetriNet = ModelRepairer.repairProcedural(informationWrapper);
-                String repairedFileName = repairedPetriNet.getLabel() + "_repaired_fully.pnml";
-                PetrinetUtils.exportPetriNetToPNML(repairedFileName, repairedPetriNet);
+                for (Map.Entry<PossibleWorldWrap, PossibleWorldWrap> entry : repairSourceTargetPair.entrySet()) {
+                    System.out.println(entry.getValue() + " repair group: ");
+                    oneGroupRepaired = checkIfGroupHasBeenRepaired(informationWrapper.getDeclarativeAutomaton(), entry.getValue(), (Petrinet) syncedNet, "one_by_one");
+                    if (oneGroupRepaired) {
+                        InformationWrapper oneGroupRepairedWrapper = new InformationWrapper(informationWrapper.getDeclarativeAutomaton(), syncedNet);
+                        AutomatonUtils.getSyncPoints(oneGroupRepairedWrapper);
+                    }
+                }
+
+                if (!oneGroupRepaired) {
+                    PetrinetUtils.exportPetriNetToPNML("test_repair_before_flattening.pnml", syncedNet);
+                    System.out.println("Going into flattening area!");
+
+                    Petrinet repairedPetriNet = ModelRepairer.repairProcedural(informationWrapper);
+                    if (repairedPetriNet != null) {
+                        String repairedFileName = repairedPetriNet.getLabel() + "_repaired_fully.pnml";
+                        PetrinetUtils.exportPetriNetToPNML(repairedFileName, repairedPetriNet);
+                        AutomatonUtils.checkLanguage(informationWrapper.getProceduralAutomaton(), informationWrapper.getDeclarativeAutomaton(), (Petrinet) syncedNet);
+                    } else {
+                        System.out.println("THIS MODEL CAN NOT BE REPAIRED!");
+                    }
+                }
+
+
 
             }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
