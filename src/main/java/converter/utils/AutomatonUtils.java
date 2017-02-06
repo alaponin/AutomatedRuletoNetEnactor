@@ -246,7 +246,7 @@ public class AutomatonUtils {
         Automaton ruleAutomaton = ltlfARW.getAutomaton();
         Automaton negatedRuleAutomaton = AutomatonOperationUtils.getNegated(ruleAutomaton);
         Automaton intersection = AutomatonOperationUtils.getIntersection(procedural, negatedRuleAutomaton);
-        
+
         return intersection.terminals().isEmpty();
 
     }
