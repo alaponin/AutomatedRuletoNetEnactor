@@ -1,6 +1,8 @@
 package converter.utils;
 
 import converter.automaton.InformationWrapper;
+import main.LTLfAutomatonResultWrapper;
+import net.sf.tweety.logics.pl.syntax.PropositionalSignature;
 import rationals.Automaton;
 import rationals.State;
 import rationals.Synchronization;
@@ -20,6 +22,15 @@ import java.util.stream.Collectors;
  * Created by arnelaponin on 08/11/2016.
  */
 public class AutomatonOperationUtils {
+
+    public static LTLfAutomatonResultWrapper createDefaultLtlAutomaton(PropositionalSignature signature, String ltlFormula) {
+        boolean declare = true;
+        boolean minimize = true;
+        boolean trim = false;
+        boolean noEmptyTrace = true;
+        boolean printing = false;
+        return main.Main.ltlfString2Aut(ltlFormula, signature, declare, minimize, trim, noEmptyTrace, printing);
+    }
 
     public static Automaton getIntersection(Automaton a1, Automaton a2) {
         return new Mix(new Synchronization() {
