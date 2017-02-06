@@ -1,15 +1,19 @@
 package converter.automaton;
 
 import automaton.PossibleWorldWrap;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.SetMultimap;
 import converter.PNAutomatonConverter;
+import converter.petrinet.CanNotConvertPNToAutomatonException;
+import converter.petrinet.NoLabelInPetriNetException;
+import converter.petrinet.NumberOfStatesDoesNotMatchException;
 import converter.utils.AutomatonOperationUtils;
 import converter.utils.AutomatonSource;
 import converter.utils.AutomatonUtils;
+import converter.utils.TarjanAlgorithmPN;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
 import org.processmining.models.graphbased.directed.petrinet.elements.Place;
+import org.processmining.models.semantics.IllegalTransitionException;
 import rationals.Automaton;
+import rationals.NoSuchStateException;
 import rationals.State;
 import rationals.Transition;
 
@@ -31,26 +35,38 @@ public class InformationWrapper {
     private Map<State, List<Transition>> semiBadStates;
     private Map<State, List<Transition>> badStatesWithTransitions;
     private Stack<SemiBadFront> fronts;
+    private Boolean hasCycle;
 
     public InformationWrapper(Automaton declarative, PetrinetGraph net) throws Exception {
         this.declarative = declarative;
         this.updateInformation(net);
     }
 
-    public void updateInformation(PetrinetGraph updatedNet) throws Exception {
+    public void updateInformation(PetrinetGraph updatedNet) throws NoSuchStateException, NoLabelInPetriNetException, CanNotConvertPNToAutomatonException, NumberOfStatesDoesNotMatchException, IllegalTransitionException {
         this.net = updatedNet;
         this.procedural = createProceduralAutomaton(updatedNet);
+        hasCycle = automatonHasCycle(this.procedural);
+        System.out.println("Automaton has cycles: " + hasCycle);
+        utils.AutomatonUtils.printAutomaton(procedural, "automaton_procedural.gv");
         this.reducedIntersection = createReducedIntersection(this.procedural, this.declarative);
+        utils.AutomatonUtils.printAutomaton(reducedIntersection, "automaton_reduced.gv");
+        System.out.println("Reduced done ...");
         this.badStates = findBadStates(this.reducedIntersection);
+        System.out.println("Bad states done ...");
         this.goodStates = findGoodStates(this.reducedIntersection);
+        System.out.println("Good states done ...");
         this.semiBadStates = findSemiBadStates(this.reducedIntersection);
+        System.out.println("Semi-bad states done ...");
 
 
         if (!reducedIntersection.terminals().isEmpty()) {
             this.badStatesWithTransitions = getBadStatesWithTransitions(this.reducedIntersection);
         }
+        System.out.println("Bad states with transitions done ...");
         this.trimmedIntersectionWithMarkings = findTrimmedIntersectionWithMarkings();
+        System.out.println("Trimmed done ...");
         fronts = new Stack<>();
+        System.out.println("Fronts done ...");
     }
 
 
@@ -86,7 +102,7 @@ public class InformationWrapper {
         return trimmedIntersectionWithMarkings;
     }
 
-    private MyAutomaton createProceduralAutomaton(PetrinetGraph net) throws Exception {
+    private MyAutomaton createProceduralAutomaton(PetrinetGraph net) throws NoSuchStateException, NoLabelInPetriNetException, CanNotConvertPNToAutomatonException, IllegalTransitionException {
         PNAutomatonConverter converter = new PNAutomatonConverter(net);
         return converter.convertToAutomaton();
     }
@@ -121,7 +137,7 @@ public class InformationWrapper {
                     accessibleStates.stream().filter(s -> !badStates.contains(s)).forEach(badStates::add);
                     badStates.stream().filter(s -> !visited.contains(s)).forEach(visited::add);
                 } else {
-                    if (!toBeVisited.contains(targetState) && !badStates.contains(targetState)) {
+                    if (!toBeVisited.contains(targetState) && !badStates.contains(targetState) && !visited.contains(targetState)) {
                         toBeVisited.add(targetState);
                     }
 
@@ -151,7 +167,7 @@ public class InformationWrapper {
                     accessibleStates.stream().filter(s -> !goodStates.contains(s)).forEach(goodStates::add);
                     goodStates.stream().filter(s -> !visited.contains(s)).forEach(visited::add);
                 }  else {
-                    if (!toBeVisited.contains(targetState) && !goodStates.contains(targetState)) {
+                    if (!toBeVisited.contains(targetState) && !goodStates.contains(targetState) && !visited.contains(targetState)) {
                         toBeVisited.add(targetState);
                     }
                 }
@@ -182,10 +198,12 @@ public class InformationWrapper {
         AutomatonOperationUtils.colorAutomatonStates(this, "automaton_coloured.gv");
     }
 
-    private MyAutomaton findTrimmedIntersectionWithMarkings() throws Exception {
+    private MyAutomaton findTrimmedIntersectionWithMarkings() throws NumberOfStatesDoesNotMatchException, NoLabelInPetriNetException, NoSuchStateException {
         Automaton trimIntersection = AutomatonOperationUtils.getTrimmed(reducedIntersection);
         Explorer explorer = new Explorer(procedural, trimIntersection);
-        return explorer.addMarkingsFromOriginal();
+        MyAutomaton trimmedWithMarkings = explorer.addMarkingsFromOriginal();
+        utils.AutomatonUtils.printAutomaton(trimmedWithMarkings, "automaton_trimmed_markings.gv");
+        return trimmedWithMarkings;
     }
 
     private Map<State, List<Transition>> getBadStatesWithTransitions(Automaton reducedIntersection) {
@@ -292,5 +310,30 @@ public class InformationWrapper {
             }
         }
         return false;
+    }
+
+    private boolean automatonHasCycle(MyAutomaton automaton) {
+        Stack<State> stack = new Stack<>();
+        List<State> visited = new ArrayList<>();
+        Set<State> initialStates = automaton.initials();
+        stack.addAll(initialStates);
+        while (!stack.isEmpty()) {
+            State currentState = stack.pop();
+            visited.add(currentState);
+            List<State> adjacentStates = automaton.getAdjacentStates(currentState);
+            for (State nextState : adjacentStates) {
+                if (!visited.contains(nextState)) {
+                    visited.add(nextState);
+                    stack.push(nextState);
+                } else if (stack.contains(nextState)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean hasCycles() {
+        return hasCycle;
     }
 }
