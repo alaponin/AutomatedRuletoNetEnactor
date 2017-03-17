@@ -14,8 +14,6 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
 
-        Tester.runModel3LanguageCheck();
-
         //ltlFormula1_1 - ltlFormula1_4 use model1.pnml as petriNetFile
         String ltlFormula1_1 = "(G (activity_g -> (X (! activity_g U activity_h)))) && ((!activity_r) WU activity_s)";
         String ltlFormula1_2 = "((!activity_g) WU activity_h) && (G (activity_g -> X (!activity_g WU activity_h))) && (G ((activity_ag) -> (F (activity_ah))))";
@@ -53,8 +51,8 @@ public class Main {
         dir5.mkdir();
         for (String rule : modelRules) {
             count++;
-            //Petrinet net = (Petrinet) Extractor.extractPetriNet(petriNetFile);
-            //Petrinet repairedNet = ProceduralRepairer.repair(net, rule);
+            Petrinet net = (Petrinet) Extractor.extractPetriNet(petriNetFile);
+            Petrinet repairedNet = ProceduralRepairer.repair(net, rule);
         }
 
 
