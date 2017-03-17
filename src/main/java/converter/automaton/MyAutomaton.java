@@ -29,7 +29,9 @@ public class MyAutomaton extends Automaton {
     }
 
     public void addMarkingList(State state, List<Place> placeList) {
-        markingMap.putIfAbsent(state, placeList);
+        if (!markingMap.containsKey(state)) {
+            markingMap.put(state, placeList);
+        }
     }
 
     public List<State> getAdjacentStates(State state) {

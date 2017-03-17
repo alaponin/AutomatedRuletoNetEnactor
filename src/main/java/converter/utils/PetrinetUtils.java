@@ -3,6 +3,7 @@ package converter.utils;
 import net.sf.tweety.logics.pl.syntax.Proposition;
 import org.processmining.contexts.cli.CLIContext;
 import org.processmining.contexts.cli.CLIPluginContext;
+import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetEdge;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetNode;
@@ -58,6 +59,21 @@ public class PetrinetUtils {
         return transitionLabels;
     }
 
+    public static List<Proposition> getAllTransitionLabelsWithoutInvisible(PetrinetGraph petrinet) {
+        List<Proposition> transitionLabels = new ArrayList<Proposition>();
+        for (Transition t : petrinet.getTransitions()) {
+            if (!t.isInvisible()) {
+                if (!t.getLabel().equals("")) {
+                    Proposition p = new Proposition(t.getLabel());
+                    transitionLabels.add(p);
+                }
+
+            }
+
+        }
+        return transitionLabels;
+    }
+
     public static void exportPetriNetToPNML(String fileName, PetrinetGraph petriNet) {
         PetrinetImpl net = (PetrinetImpl) petriNet;
         CLIContext dl = new CLIContext();
@@ -71,5 +87,16 @@ public class PetrinetUtils {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static Petrinet setLabellessTransitionsInvisible(Petrinet net) {
+        Iterator<Transition> transitionIterator = net.getTransitions().iterator();
+        while (transitionIterator.hasNext()) {
+            Transition t = transitionIterator.next();
+            if (t.getLabel().equals("") || t.getLabel().equals(null)) {
+                t.setInvisible(true);
+            }
+        }
+        return net;
     }
 }

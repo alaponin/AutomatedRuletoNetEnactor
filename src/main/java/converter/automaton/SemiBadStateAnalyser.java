@@ -1,6 +1,9 @@
 package converter.automaton;
 
 import automaton.PossibleWorldWrap;
+import converter.ProceduralRepairer;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
 import rationals.Automaton;
 import rationals.State;
@@ -12,6 +15,8 @@ import java.util.*;
  * Created by arnelaponin on 07/12/2016.
  */
 public class SemiBadStateAnalyser {
+
+    private static Logger logger = LogManager.getLogger(SemiBadStateAnalyser.class);
 
     private final Automaton reducedIntersection;
     PetrinetGraph net;
@@ -28,13 +33,11 @@ public class SemiBadStateAnalyser {
         Map<PossibleWorldWrap, State> lastStates = new HashMap<>();
 
         reSortTransitionsByLabel(statesSortedByLabels);
-        System.out.println("Sorted semi-bad states: " + statesSortedByLabels);
+        logger.info("Sorted semi-bad states: " + statesSortedByLabels);
 
         for (Map.Entry<PossibleWorldWrap, List<Transition>> entry : statesSortedByLabels.entrySet()) {
             PossibleWorldWrap transitionLabel = entry.getKey();
-            System.out.println("Sorted key: " + transitionLabel);
             List<Transition> transitions = entry.getValue();
-            System.out.println("Sorted transitions: " + transitions);
             List<State> semiBadStates = new ArrayList<>();
             for (Transition transition : transitions) {
                 semiBadStates.add(transition.start());

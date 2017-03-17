@@ -1,14 +1,16 @@
 package converter.automaton;
 
 import automaton.PossibleWorldWrap;
-import converter.PNAutomatonConverter;
 import converter.petrinet.CanNotConvertPNToAutomatonException;
 import converter.petrinet.NoLabelInPetriNetException;
 import converter.petrinet.NumberOfStatesDoesNotMatchException;
-import converter.utils.AutomatonOperationUtils;
-import converter.utils.AutomatonSource;
-import converter.utils.AutomatonUtils;
-import converter.utils.TarjanAlgorithmPN;
+import converter.utils.*;
+import main.LTLfAutomatonResultWrapper;
+import net.sf.tweety.logics.pl.syntax.Proposition;
+import net.sf.tweety.logics.pl.syntax.PropositionalSignature;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
 import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import org.processmining.models.semantics.IllegalTransitionException;
@@ -18,13 +20,17 @@ import rationals.State;
 import rationals.Transition;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Created by arnelaponin on 19/12/2016.
  */
 public class InformationWrapper {
 
+    private static Logger logger = LogManager.getLogger(InformationWrapper.class);
+
+    private String formula;
+    PropositionalSignature signature;
+    LTLfAutomatonResultWrapper ltlfARW;
     private Automaton declarative;
     private PetrinetGraph net;
     private MyAutomaton procedural;
@@ -37,38 +43,70 @@ public class InformationWrapper {
     private Stack<SemiBadFront> fronts;
     private Boolean hasCycle;
 
-    public InformationWrapper(Automaton declarative, PetrinetGraph net) throws Exception {
-        this.declarative = declarative;
+    public InformationWrapper(String formula, PetrinetGraph net) throws Exception {
+        this.formula = formula;
+        signature = new PropositionalSignature();
+        List<Proposition> netPropositions = PetrinetUtils.getAllTransitionLabels(net);
+        signature.addAll(netPropositions);
+
+        //Automaton of the declarative model.
+        ltlfARW = AutomatonOperationUtils.createDefaultLtlAutomaton(signature, formula);
+
+        this.declarative = ltlfARW.getAutomaton();
+        utils.AutomatonUtils.printAutomaton(declarative, "automatons/automaton_declarative.gv");
         this.updateInformation(net);
     }
 
-    public void updateInformation(PetrinetGraph updatedNet) throws NoSuchStateException, NoLabelInPetriNetException, CanNotConvertPNToAutomatonException, NumberOfStatesDoesNotMatchException, IllegalTransitionException {
+    private void updateInformation(PetrinetGraph updatedNet) throws NoSuchStateException, NoLabelInPetriNetException, CanNotConvertPNToAutomatonException, NumberOfStatesDoesNotMatchException, IllegalTransitionException {
         this.net = updatedNet;
+
+        logger.info("Starting to create procedural: ");
         this.procedural = createProceduralAutomaton(updatedNet);
         hasCycle = automatonHasCycle(this.procedural);
-        System.out.println("Automaton has cycles: " + hasCycle);
-        utils.AutomatonUtils.printAutomaton(procedural, "automaton_procedural.gv");
+
+        logger.info("Automaton has cycles: " + hasCycle);
+        String proceduralFileName = "automatons/automaton_procedural_" + procedural.hashCode() + "_.gv";
+        utils.AutomatonUtils.printAutomaton(procedural, proceduralFileName);
         this.reducedIntersection = createReducedIntersection(this.procedural, this.declarative);
-        utils.AutomatonUtils.printAutomaton(reducedIntersection, "automaton_reduced.gv");
-        System.out.println("Reduced done ...");
+        String intersectionFileName = "automatons/automaton_intersection_" + reducedIntersection.hashCode() + "_.gv";
+        utils.AutomatonUtils.printAutomaton(reducedIntersection, intersectionFileName);
+
+        logger.info("Reduced done ...");
         this.badStates = findBadStates(this.reducedIntersection);
-        System.out.println("Bad states done ...");
+
+        logger.info("Bad states done ...");
         this.goodStates = findGoodStates(this.reducedIntersection);
-        System.out.println("Good states done ...");
+
+        logger.info("Good states done ...");
         this.semiBadStates = findSemiBadStates(this.reducedIntersection);
-        System.out.println("Semi-bad states done ...");
+
+        logger.info("Semi-bad states done ...");
 
 
         if (!reducedIntersection.terminals().isEmpty()) {
             this.badStatesWithTransitions = getBadStatesWithTransitions(this.reducedIntersection);
         }
-        System.out.println("Bad states with transitions done ...");
+
+        logger.info("Bad states with transitions done ...");
         this.trimmedIntersectionWithMarkings = findTrimmedIntersectionWithMarkings();
-        System.out.println("Trimmed done ...");
+
+        logger.info("Trimmed done ...");
         fronts = new Stack<>();
-        System.out.println("Fronts done ...");
+
+        logger.info("Fronts done ...");
     }
 
+    public String getFormula() {
+        return formula;
+    }
+
+    public PropositionalSignature getSignature() {
+        return signature;
+    }
+
+    public LTLfAutomatonResultWrapper getLtlfARW() {
+        return ltlfARW;
+    }
 
     public PetrinetGraph getNet() {
         return net;
@@ -103,8 +141,8 @@ public class InformationWrapper {
     }
 
     private MyAutomaton createProceduralAutomaton(PetrinetGraph net) throws NoSuchStateException, NoLabelInPetriNetException, CanNotConvertPNToAutomatonException, IllegalTransitionException {
-        PNAutomatonConverter converter = new PNAutomatonConverter(net);
-        return converter.convertToAutomaton();
+        TSGenerator tsGenerator = new TSGenerator();
+        return tsGenerator.createAutomaton((Petrinet) net);
     }
 
     private Automaton createReducedIntersection(MyAutomaton procedural, Automaton declarative) {
@@ -134,8 +172,16 @@ public class InformationWrapper {
                     if (!badStates.contains(targetState)) {
                         badStates.add(targetState);
                     }
-                    accessibleStates.stream().filter(s -> !badStates.contains(s)).forEach(badStates::add);
-                    badStates.stream().filter(s -> !visited.contains(s)).forEach(visited::add);
+                    for (State accessibleState : accessibleStates) {
+                        if (!badStates.contains(accessibleState)) {
+                            badStates.add(accessibleState);
+                        }
+                    }
+                    for (State badState : badStates) {
+                        if (!visited.contains(badState)) {
+                            visited.add(badState);
+                        }
+                    }
                 } else {
                     if (!toBeVisited.contains(targetState) && !badStates.contains(targetState) && !visited.contains(targetState)) {
                         toBeVisited.add(targetState);
@@ -164,8 +210,16 @@ public class InformationWrapper {
                     if (!goodStates.contains(targetState)) {
                         goodStates.add(targetState);
                     }
-                    accessibleStates.stream().filter(s -> !goodStates.contains(s)).forEach(goodStates::add);
-                    goodStates.stream().filter(s -> !visited.contains(s)).forEach(visited::add);
+                    for (State s : accessibleStates) {
+                        if (!goodStates.contains(s)) {
+                            goodStates.add(s);
+                        }
+                    }
+                    for (State goodState : goodStates) {
+                        if (!visited.contains(goodState)) {
+                            visited.add(goodState);
+                        }
+                    }
                 }  else {
                     if (!toBeVisited.contains(targetState) && !goodStates.contains(targetState) && !visited.contains(targetState)) {
                         toBeVisited.add(targetState);
@@ -183,26 +237,35 @@ public class InformationWrapper {
 
         Set<State> allStates = reducedIntersection.states();
 
-        List<State> potentialSemiBadStates = allStates.stream().filter(s -> !goodStates.contains(s) && !badStates.contains(s)).collect(Collectors.toList());
+        List<State> potentialSemiBadStates = new ArrayList<>();
+        for (State s : allStates) {
+            if (!goodStates.contains(s) && !badStates.contains(s)) {
+                potentialSemiBadStates.add(s);
+            }
+         }
         for (State potential : potentialSemiBadStates) {
             Set<Transition> transitions = reducedIntersection.delta(potential);
-            transitions.stream().filter(transition -> badStates.contains(transition.end())).forEach(transition -> {
-                insertTransitionToMapList(semiBadStates, potential, transition);
-            });
+
+            for (Transition transition : transitions) {
+                if (badStates.contains(transition.end())) {
+                    insertTransitionToMapList(semiBadStates, potential, transition);
+                }
+            }
         }
-        System.out.println("SEMI-BAD STATES: " + semiBadStates);
+
+        logger.info("SEMI-BAD STATES: " + semiBadStates);
         return semiBadStates;
     }
 
     public void colourAutomaton() {
-        AutomatonOperationUtils.colorAutomatonStates(this, "automaton_coloured.gv");
+        AutomatonOperationUtils.colorAutomatonStates(this, "automatons/automaton_coloured.gv");
     }
 
     private MyAutomaton findTrimmedIntersectionWithMarkings() throws NumberOfStatesDoesNotMatchException, NoLabelInPetriNetException, NoSuchStateException {
         Automaton trimIntersection = AutomatonOperationUtils.getTrimmed(reducedIntersection);
         Explorer explorer = new Explorer(procedural, trimIntersection);
         MyAutomaton trimmedWithMarkings = explorer.addMarkingsFromOriginal();
-        utils.AutomatonUtils.printAutomaton(trimmedWithMarkings, "automaton_trimmed_markings.gv");
+        utils.AutomatonUtils.printAutomaton(trimmedWithMarkings, "automatons/automaton_trimmed_markings.gv");
         return trimmedWithMarkings;
     }
 
@@ -212,7 +275,7 @@ public class InformationWrapper {
             Set<Transition> transitions = reducedIntersection.delta(badState);
             int count = 0;
             if (!badState.isTerminal() && transitions.isEmpty()) {
-                badStatesTransitions.put(badState, new ArrayList<>());
+                badStatesTransitions.put(badState, new ArrayList<Transition>());
             }
             for (Transition transition : transitions) {
                 if (badStates.contains(transition.end())) {
@@ -250,37 +313,36 @@ public class InformationWrapper {
                         toBeVisited.add(new StatePair(originalTransition.end(), intersectionTransition.end()));
                         if (semiBadStates.containsKey(intersectionTransition.start())) {
                             List<Transition> troubledTransitions = semiBadStates.get(intersectionTransition.start());
-                            troubledTransitions.stream().filter(t -> t.label().equals(intersectionTransition.label())).forEach(t -> {
+                            for (Transition t : troubledTransitions) {
+                                if (t.label().equals(intersectionTransition.label())) {
+                                    MarkingStateFactory.MarkingState start = (MarkingStateFactory.MarkingState) originalTransition.start();
+                                    MarkingStateFactory.MarkingState end = (MarkingStateFactory.MarkingState) originalTransition.end();
 
-                                MarkingStateFactory.MarkingState start = (MarkingStateFactory.MarkingState) originalTransition.start();
-                                MarkingStateFactory.MarkingState end = (MarkingStateFactory.MarkingState) originalTransition.end();
+                                    TransitionMarkingPair markingPair = new TransitionMarkingPair(originalMarkings.get(start), originalMarkings.get(end));
 
-                                TransitionMarkingPair markingPair = new TransitionMarkingPair(originalMarkings.get(start), originalMarkings.get(end));
+                                    Transition transition = null;
 
-                                Transition transition = null;
+                                    switch(source) {
+                                        case fromOriginal:
+                                            transition = originalTransition;
+                                            break;
+                                        case fromIntersection:
+                                            transition = intersectionTransition;
+                                            break;
+                                    }
 
-                                switch(source) {
-                                    case fromOriginal:
-                                        transition = originalTransition;
-                                        break;
-                                    case fromIntersection:
-                                        transition = intersectionTransition;
-                                        break;
+                                    if (sortedMarkings.containsKey(transition.label())) {
+                                        Map<Transition, TransitionMarkingPair> transitionMarkingPairMap = sortedMarkings.get(transition.label());
+                                        transitionMarkingPairMap.put(transition, markingPair);
+                                        sortedMarkings.put((PossibleWorldWrap) transition.label(), transitionMarkingPairMap);
+
+                                    } else {
+                                        Map<Transition, TransitionMarkingPair> transitionMarkingPairMap = new HashMap<>();
+                                        transitionMarkingPairMap.put(transition, markingPair);
+                                        sortedMarkings.put((PossibleWorldWrap) transition.label(), transitionMarkingPairMap);
+                                    }
                                 }
-
-                                if (sortedMarkings.containsKey(transition.label())) {
-                                    Map<Transition, TransitionMarkingPair> transitionMarkingPairMap = sortedMarkings.get(transition.label());
-                                    transitionMarkingPairMap.put(transition, markingPair);
-                                    sortedMarkings.put((PossibleWorldWrap) transition.label(), transitionMarkingPairMap);
-
-                                } else {
-                                    Map<Transition, TransitionMarkingPair> transitionMarkingPairMap = new HashMap<>();
-                                    transitionMarkingPairMap.put(transition, markingPair);
-                                    sortedMarkings.put((PossibleWorldWrap) transition.label(), transitionMarkingPairMap);
-                                }
-
-
-                            });
+                            }
                         }
                     }
                 }
@@ -313,24 +375,8 @@ public class InformationWrapper {
     }
 
     private boolean automatonHasCycle(MyAutomaton automaton) {
-        Stack<State> stack = new Stack<>();
-        List<State> visited = new ArrayList<>();
-        Set<State> initialStates = automaton.initials();
-        stack.addAll(initialStates);
-        while (!stack.isEmpty()) {
-            State currentState = stack.pop();
-            visited.add(currentState);
-            List<State> adjacentStates = automaton.getAdjacentStates(currentState);
-            for (State nextState : adjacentStates) {
-                if (!visited.contains(nextState)) {
-                    visited.add(nextState);
-                    stack.push(nextState);
-                } else if (stack.contains(nextState)) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        TarjanAlgorithm tarjanAlgorithm = new TarjanAlgorithm(automaton);
+        return tarjanAlgorithm.getNumberOfComponents() != automaton.states().size();
     }
 
     public boolean hasCycles() {

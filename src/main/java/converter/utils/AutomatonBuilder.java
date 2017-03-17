@@ -16,10 +16,7 @@ import rationals.Automaton;
 import rationals.NoSuchStateException;
 import rationals.Transition;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -79,7 +76,11 @@ public class AutomatonBuilder {
         transitionLabels = new HashSet<>();
         originalAutomaton.delta();
         Set<Transition> transitions = originalAutomaton.delta();
-        transitionLabels.addAll(transitions.stream().map(t -> (PossibleWorldWrap) t.label()).collect(Collectors.toList()));
+        List<PossibleWorldWrap> pwwTransitions = new ArrayList<>();
+        for (Transition t : transitions) {
+            pwwTransitions.add((PossibleWorldWrap) t.label());
+        }
+        transitionLabels.addAll(pwwTransitions);
 
     }
 
@@ -98,6 +99,19 @@ public class AutomatonBuilder {
         automaton.addMarkingList(targetState, new ArrayList<>(targetState.getMarking().baseSet()));
     }
 
+    public boolean isTransitionPresent(Marking source, String transitionLabel, Marking target) {
+        MarkingState sourceState = (MarkingState) stateFactory.create(source);
+        MarkingState targetState = (MarkingState) stateFactory.create(target);
+
+        Set<Transition> transitions = automaton.deltaFrom(sourceState, targetState);
+        for (Transition t : transitions) {
+            if (t.label().equals(transitionLabel)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private TransitionLabel getTransitionLabel(String label) throws NoLabelInPetriNetException {
         TransitionLabel transitionLabel = null;
         Proposition proposition = new Proposition(label);
@@ -109,9 +123,7 @@ public class AutomatonBuilder {
                 transitionLabel = tl;
             }
         }
-        if (transitionLabel == null) {
-            throw new NoLabelInPetriNetException("No such label in the petri net.");
-        }
+
         return transitionLabel;
     }
 

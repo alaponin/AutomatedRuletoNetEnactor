@@ -16,12 +16,27 @@ public class MarkingAnalyser {
 
     public static List<Place> getUnusedStates(MyAutomaton original, MyAutomaton good) throws Exception {
 
-        List<Place> flattenedOriginalPlaces = original.getMarkingMap().values().stream()
-                .flatMap(List::stream).distinct()
-                .collect(Collectors.toList());
-        List<Place> flattenedGoodPlaces = good.getMarkingMap().values().stream()
-                .flatMap(List::stream).distinct()
-                .collect(Collectors.toList());
+        List<Place> flattenedOriginalPlaces = new ArrayList<>();
+        Collection<List<Place>> originalMarkingsCollection = original.getMarkingMap().values();
+        for (Iterator iterator = originalMarkingsCollection.iterator(); iterator.hasNext();) {
+            List<Place> originalMarking = (List<Place>) iterator.next();
+            for (Place p : originalMarking) {
+                if (!flattenedOriginalPlaces.contains(p)) {
+                    flattenedOriginalPlaces.add(p);
+                }
+            }
+        }
+
+        List<Place> flattenedGoodPlaces = new ArrayList<>();
+        Collection<List<Place>> goodMarkingsCollection = good.getMarkingMap().values();
+        for (Iterator iterator = goodMarkingsCollection.iterator(); iterator.hasNext();) {
+            List<Place> goodMarking = (List<Place>) iterator.next();
+            for (Place p : goodMarking) {
+                if (!flattenedGoodPlaces.contains(p)) {
+                    flattenedGoodPlaces.add(p);
+                }
+            }
+        }
 
         Set<Place> placesNotInOriginal = new HashSet<>(flattenedOriginalPlaces);
         placesNotInOriginal.removeAll(flattenedGoodPlaces);

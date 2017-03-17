@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Main-Class: converter.Main
+Class-Path: dependency-jars/log4j-api-2.8.1.jar dependency-jars/log4j-core-2.8.1.jar
+

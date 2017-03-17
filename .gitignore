@@ -119,3 +119,4 @@ IncompatibilityDetector.java
 DifferenceResult.java
 TransitionPair.java
 target
+removed_tests

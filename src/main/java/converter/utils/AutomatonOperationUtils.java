@@ -77,17 +77,24 @@ public class AutomatonOperationUtils {
         Map<State, List<Transition>> badStatesMap = informationWrapper.getBadStatesWithTransitions();
         Set<State> badStates = badStatesMap.keySet();
         List<List<Transition>> badTransitionsList = new ArrayList(badStatesMap.values());
-        List<Transition> badTransitions = badTransitionsList.stream().flatMap(List::stream).collect(Collectors.toList());
-
+        //List<Transition> badTransitions = badTransitionsList.stream().flatMap(List::stream).collect(Collectors.toList());
+        List<Transition> badTransitions = new ArrayList<>();
+        for (List<Transition> badList : badTransitionsList) {
+            badTransitions.addAll(badList);
+        }
 
         Set<State> semiBadStates = informationWrapper.getSemiBadStates().keySet();
         List<List<Transition>> troubledTransitionsList = new ArrayList(informationWrapper.getSemiBadStates().values());
 
-        List<Transition> semiBadTransitions = troubledTransitionsList.stream().flatMap(List::stream).collect(Collectors.toList());
+        List<Transition> semiBadTransitions = new ArrayList<>();
+        for (List<Transition> semiBadList : troubledTransitionsList) {
+            semiBadTransitions.addAll(semiBadList);
+        }
+        //List<Transition> semiBadTransitions = troubledTransitionsList.stream().flatMap(List::stream).collect(Collectors.toList());
 
         //TODO:Remove this.
         Automaton trimIntersection = AutomatonOperationUtils.getTrimmed(informationWrapper.getReducedIntersection());
-        utils.AutomatonUtils.printAutomaton(trimIntersection, "automaton_trim.gv");
+        utils.AutomatonUtils.printAutomaton(trimIntersection, "automatons/automaton_trim.gv");
 
         drawColoredAutomaton(informationWrapper.getReducedIntersection(), fileName, badStates, badTransitions, semiBadStates, semiBadTransitions);
     }
@@ -105,6 +112,29 @@ public class AutomatonOperationUtils {
         ps.println(toDot(automaton, badPlaces, badTransitions, semiBadStates, semiBadTransitions));
         ps.flush();
         ps.close();
+    }
+
+    public static void drawAutomaton(Automaton automaton, String fileName) {
+        FileOutputStream fos = null;
+
+        try {
+            fos = new FileOutputStream(fileName);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        PrintStream ps = new PrintStream(fos);
+        ps.println(toDot(automaton));
+        ps.flush();
+        ps.close();
+    }
+
+    private static String toDot(Automaton automaton) {
+        Set<State> badPlaces = new HashSet<>();
+        List<Transition> badTransitions = new ArrayList<>();
+        Set<State> semiBadStates = new HashSet<>();
+        List<Transition> semiBadTransitions = new ArrayList<>();
+        return toDot(automaton, badPlaces, badTransitions, semiBadStates, semiBadTransitions);
     }
 
     private static String toDot(Automaton automaton, Set<State> badPlaces, List<Transition> badTransitions, Set<State> semiBadStates, List<Transition> semiBadTransitions) {
@@ -137,7 +167,12 @@ public class AutomatonOperationUtils {
                 graphString.append("  ").append((t.start()).toString());
                 State arrivalState = t.end();
                 graphString.append(" -> ").append(arrivalState.toString()).append(" [label=\"");
-                graphString.append(t.label().toString());
+
+                try {
+                    graphString.append(t.label().toString());
+                } catch (NullPointerException e) {
+                    graphString.append("");
+                }
                 if (semiBadTransitions.contains(t)) {
                     graphString.append("\",color=\"gold");
                 } else if (badTransitions.contains(t)) {

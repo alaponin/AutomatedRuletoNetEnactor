@@ -6,6 +6,8 @@ import converter.petrinet.CanNotConvertPNToAutomatonException;
 import converter.petrinet.NumberOfStatesDoesNotMatchException;
 import converter.utils.*;
 import net.sf.tweety.logics.pl.syntax.Proposition;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetEdge;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
@@ -23,26 +25,28 @@ import java.util.*;
  */
 public class ModelRepairer {
 
+    private static Logger logger = LogManager.getLogger(ModelRepairer.class);
+
     public static Petrinet repairXorBranch(InformationWrapper informationWrapper) throws Exception {
         PetrinetGraph net = informationWrapper.getNet();
         MyAutomaton procedural = informationWrapper.getProceduralAutomaton();
-        Automaton reducedIntersection = informationWrapper.getReducedIntersection();
-        utils.AutomatonUtils.printAutomaton(reducedIntersection, "automaton_before_xor.gv");
         MyAutomaton trimmedIntersectionWithMarkings = informationWrapper.getTrimmedIntersectionWithMarkings();
         List<Place> unusedPlaces = MarkingAnalyser.getUnusedStates(procedural, trimmedIntersectionWithMarkings);
 
-        System.out.println("Unused places: " + unusedPlaces);
+        logger.info("Unused places: " + unusedPlaces);
 
         if (!unusedPlaces.isEmpty()) {
             //Branches with unused places are removed.
             net = removeBranch((Petrinet) net, unusedPlaces);
-        } else {
-            //Unused transitions are found and removed.
-            List<PossibleWorldWrap> unusedTransitionLabels = MarkingAnalyser.getUnusedTransitionLabels(procedural, trimmedIntersectionWithMarkings);
-            System.out.println("Unused transitions: " + unusedTransitionLabels);
-            net = removeTransitions(net, unusedTransitionLabels);
         }
 
+        //The unused transitions are taken with respect to original procedural automaton, so the list is larger
+        //than the alphabet of the current net.
+        List<PossibleWorldWrap> unusedTransitionLabels = MarkingAnalyser.getUnusedTransitionLabels(procedural, trimmedIntersectionWithMarkings);
+        logger.info("Unused transitions: " + unusedTransitionLabels);
+        if (!unusedTransitionLabels.isEmpty()) {
+            net = removeTransitions(net, unusedTransitionLabels);
+        }
 
         return (Petrinet) net;
 
@@ -52,16 +56,15 @@ public class ModelRepairer {
         List<org.processmining.models.graphbased.directed.petrinet.elements.Transition> transitionsToRemove = new ArrayList<>();
         for (PossibleWorldWrap transitionLabel : unusedTransitionLabels) {
             for (org.processmining.models.graphbased.directed.petrinet.elements.Transition transition : net.getTransitions()) {
-                Proposition prop = new Proposition(transition.getLabel());
-                List<Proposition> props = new ArrayList<>();
-                props.add(prop);
-                PossibleWorldWrap pw = new PossibleWorldWrap(props);
+                PossibleWorldWrap pw = createPossibleWorldWrap(transition);
                 if (pw.equals(transitionLabel)) {
                     transitionsToRemove.add(transition);
                 }
             }
         }
-        transitionsToRemove.forEach(net::removeTransition);
+        for (org.processmining.models.graphbased.directed.petrinet.elements.Transition t : transitionsToRemove) {
+            net.removeTransition(t);
+        }
         return net;
     }
 
@@ -75,8 +78,6 @@ public class ModelRepairer {
         Map<State, List<Transition>> semiBadStates = informationWrapper.getSemiBadStates();
         //Markings are added to the semi-bad states.
         Map<PossibleWorldWrap, Map<Transition, TransitionMarkingPair>> semiBadStatesWithMarkings = informationWrapper.getSemiBadMarkingsFromIntersection();
-
-        AutomatonOperationUtils.colorAutomatonStates(informationWrapper, "automaton_coloured_proc.gv");
 
         SemiBadFront firstSemiBadFront = new SemiBadFront(semiBadStates, semiBadStatesWithMarkings);
 
@@ -99,7 +100,7 @@ public class ModelRepairer {
 
                 //Difference between the semi-bad state marking and a bad state marking is taken.
                 Queue<Place> problematicPlaces = AutomatonUtils.findPlacesToRemoveFromSemiBadMarkings(transitionGroupMarkings);
-                System.out.println("Problematic places for group " + transitionLabel + ": " + problematicPlaces);
+                logger.info("Problematic places for group " + transitionLabel + ": " + problematicPlaces);
 
                 while (!problematicPlaces.isEmpty()) {
                     Place problematicPlace = problematicPlaces.poll();
@@ -110,69 +111,62 @@ public class ModelRepairer {
                     if (markingFromWhereToRepair != null) {
                         //Places from where the net could be repaired.
                         markingFromWhereToRepair.remove(problematicPlace);
-                        System.out.println("Marking from where to repair: " + markingFromWhereToRepair);
+                        logger.info("Marking from where to repair: " + markingFromWhereToRepair);
                         if (!markingFromWhereToRepair.isEmpty()) {
                             for (Place troubledPlace : markingFromWhereToRepair) {
-                                System.out.println("Troubled: " + troubledPlace);
+                                logger.info("Troubled: " + troubledPlace);
                                 Petrinet currentNet = repairedCandidates.peek();
 
-                                //TODO: Check if cloning is necessary.
-                                //Petri net is cloned, so that the changes can figuratively be rolled back.
-                                Petrinet cloneNet = PetrinetFactory.clonePetrinet((Petrinet) currentNet);
-                                Petrinet originalCloneNet = PetrinetFactory.clonePetrinet((Petrinet) net);
+                                Petrinet currentNetClone = PetrinetFactory.clonePetrinet(currentNet);
+                                Petrinet originalNetClone = PetrinetFactory.clonePetrinet((Petrinet) net);
+
+                                Petrinet repairedCandidateFromOriginal = (Petrinet) Repairer.repair(originalNetClone, getPlaceFromCloneNet(originalNetClone, troubledPlace), getPlaceFromCloneNet(originalNetClone, problematicPlace));
+                                logger.info("Checking whether candidate has been fully repaired. ");
+                                InformationWrapper finalWrapperOptional =
+                                        wrapCandidate(informationWrapper.getFormula(), repairedCandidateFromOriginal, "_sync_no_flat");
+                                if (finalWrapperOptional != null && finalWrapperOptional.getSemiBadStates().isEmpty()) {
+                                    logger.info("MODEL HAS BEEN REPAIRED WITHOUT FLATTENING!!!");
+                                    return repairedCandidateFromOriginal;
+                                }
 
 
                                 //To be safe, that cloned places correspond to real ones, a check is needed.
-                                Place problematicPlaceClone = getPlaceFromCloneNet(cloneNet, problematicPlace);
+                                Place problematicPlaceClone = getPlaceFromCloneNet(currentNetClone, problematicPlace);
 
-                                Place troubledPlaceClone = getPlaceFromCloneNet(cloneNet, troubledPlace);
-                                System.out.println("Troubled clone: " + troubledPlaceClone);
+                                Place troubledPlaceClone = getPlaceFromCloneNet(currentNetClone, troubledPlace);
 
                                 //TODO: The order with which we take troubled places might matter.
 
                                 if (troubledPlaceClone != null && problematicPlaceClone != null) {
-                                    Petrinet repairedCandidate = (Petrinet) Repairer.repair(cloneNet, getPlaceFromCloneNet(cloneNet, troubledPlace), problematicPlaceClone);
-                                    Petrinet repairedCandidateNoFlat = (Petrinet) Repairer.repair(originalCloneNet, getPlaceFromCloneNet(originalCloneNet, troubledPlace), getPlaceFromCloneNet(originalCloneNet, problematicPlace));
-
+                                    Petrinet repairedCandidate = (Petrinet) Repairer.repair(currentNetClone, getPlaceFromCloneNet(currentNetClone, troubledPlace), problematicPlaceClone);
 
                                     String explanation = "removing_" + problematicPlace.getLabel();
-                                    String explanation2 = "no_flat_" + problematicPlace.getLabel();
-                                    System.out.println("Repair has been finished...");
-                                    if (checkIfGroupHasBeenRepaired(informationWrapper.getDeclarativeAutomaton(), transitionLabel, repairedCandidate, explanation)) {
-                                        System.out.println("Checking repair results.....");
+                                    logger.info("Repair has been finished...");
+                                    if (checkIfGroupHasBeenRepaired(informationWrapper.getFormula(), transitionLabel, repairedCandidate, explanation)) {
+                                        logger.info("Checking repair results.....");
                                         repairedCandidates.push(repairedCandidate);
                                         problematicPlaces.clear();
-                                        //TODO: For some markings, the execution of the program gets stuck, that should be fixed.
-                                        //markingFromWhereToRepair.clear();
-                                        System.out.println("Fronts might not be empty... " + fronts);
-                                        System.out.println("Markings might not be empty... " + markingsForGroup.keySet());
-                                    } else {
-                                        Optional<InformationWrapper> finalWrapperOptional = checkIfCandidateFullyConformsToRules(informationWrapper.getDeclarativeAutomaton(), repairedCandidateNoFlat, "_sync_no_flat");
-                                        if (finalWrapperOptional.isPresent() && finalWrapperOptional.get().getSemiBadStates().isEmpty()) {
-                                            System.out.println("MODEL HAS BEEN REPAIRED WITHOUT FLATTENING!!!");
-                                            return repairedCandidateNoFlat;
-                                        }
+                                        logger.info("Fronts might not be empty... " + fronts);
+                                        logger.info("Markings might not be empty... " + markingsForGroup.keySet());
                                     }
                                 }
-
-
                             }
                         }
 
                     } else {
-                        System.out.println("Group with transition label " + transitionLabel + " can not be repaired.");
+                        logger.info("Group with transition label " + transitionLabel + " can not be repaired.");
                     }
 
                 }
-                System.out.println("REPAIRED candidates: " + repairedCandidates);
+                logger.info("REPAIRED candidates: " + repairedCandidates);
 
 
             }
 
             Petrinet finalCandidate = repairedCandidates.peek();
-            Optional<InformationWrapper> finalWrapperOptional = checkIfCandidateFullyConformsToRules(informationWrapper.getDeclarativeAutomaton(), finalCandidate, "_after_final_removal");
-            if (finalWrapperOptional.isPresent() && finalWrapperOptional.get().getSemiBadStates().isEmpty()) {
-                System.out.println("Found a repaired model!!!!");
+            InformationWrapper finalWrapperOptional = wrapCandidate(informationWrapper.getFormula(), finalCandidate, "_after_final_removal");
+            if (finalWrapperOptional != null && finalWrapperOptional.getSemiBadStates().isEmpty()) {
+                logger.info("Found a repaired model!!!!");
                 repairedPetriNet = finalCandidate;
             }
 
@@ -186,16 +180,17 @@ public class ModelRepairer {
                 }
 
             } else {
-                System.out.println("MODEL HAS BEEN REPAIRED!!!");
+                logger.info("MODEL HAS BEEN REPAIRED!!!");
             }
         }
 
         return repairedPetriNet;
     }
 
-    private static boolean checkIfGroupHasBeenRepaired(Automaton declarative, PossibleWorldWrap transitionLabel, Petrinet repairedCandidate, String explanation) throws Exception {
+    private static boolean checkIfGroupHasBeenRepaired(String formula, PossibleWorldWrap transitionLabel, Petrinet repairedCandidate, String explanation) throws Exception {
         try {
-            InformationWrapper repairedWrapper = new InformationWrapper(declarative, repairedCandidate);
+            logger.info("Checking the group " + transitionLabel);
+            InformationWrapper repairedWrapper = new InformationWrapper(formula, repairedCandidate);
             Map<PossibleWorldWrap, Map<Transition, TransitionMarkingPair>> semiBadStatesWithMarkings = repairedWrapper.getSemiBadMarkingsFromOriginal();
 
             return !semiBadStatesWithMarkings.containsKey(transitionLabel);
@@ -205,40 +200,28 @@ public class ModelRepairer {
 
     }
 
-    //TODO: Name should be changed, this method only creates the wrapper.
-    public static Optional<InformationWrapper> checkIfCandidateFullyConformsToRules(Automaton declarative, Petrinet repairedCandidate, String explanation) throws Exception {
+    public static InformationWrapper wrapCandidate(String formula, Petrinet repairedCandidate, String explanation) throws Exception {
 
         try {
-            InformationWrapper candidateWrapper = new InformationWrapper(declarative, repairedCandidate);
+            InformationWrapper candidateWrapper = new InformationWrapper(formula, repairedCandidate);
 
-            System.out.println("Starting to convert repaired candidate.");
-            PetrinetUtils.exportPetriNetToPNML("partially_repaired.pnml", repairedCandidate);
-            //PNAutomatonConverter converter = new PNAutomatonConverter(repairedCandidate);
-            //MyAutomaton repairedCandidateAutomaton = converter.convertToAutomaton();
-            System.out.println("Repaired candidate has been converted into an automaton.");
-
-            //Automaton repairedCandidateReducedIntersection = candidateWrapper.getReducedIntersection();
-
-            //Map<State, List<Transition>> semiBadStatesWithMarkings = candidateWrapper.getSemiBadStates();
-            //Map<State, List<Transition>> badStatesWithMarkings = candidateWrapper.getBadStatesWithTransitions();
-
-            String repairAutomatonFileName = "automaton_" + explanation + ".gv";
+            String repairAutomatonFileName = "automatons/automaton_" + explanation + ".gv";
 
             if (candidateWrapper.getNet() == null) {
                 AutomatonOperationUtils.colorAutomatonStates(candidateWrapper, repairAutomatonFileName);
             }
 
-            return Optional.ofNullable(candidateWrapper);
-        } catch (NumberOfStatesDoesNotMatchException e) {
+            return candidateWrapper;
+        } catch (NumberOfStatesDoesNotMatchException | CanNotConvertPNToAutomatonException e) {
             return null;
         }
 
     }
 
-    public static void addSyncPointsToParallelBranches(InformationWrapper informationWrapper, Map<PossibleWorldWrap, PossibleWorldWrap> repairSourceTargetPair) {
+    public static Petrinet addSyncPointsToParallelBranches(InformationWrapper informationWrapper, Map<PossibleWorldWrap, PossibleWorldWrap> repairSourceTargetPair) {
         Petrinet cloneNet = PetrinetFactory.clonePetrinet((Petrinet) informationWrapper.getNet());
 
-        System.out.println("Repair: " + repairSourceTargetPair);
+        logger.info("Repair: " + repairSourceTargetPair);
         Map<org.processmining.models.graphbased.directed.petrinet.elements.Transition, org.processmining.models.graphbased.directed.petrinet.elements.Transition> netRepairPair = new HashMap<>();
         for (Map.Entry<PossibleWorldWrap, PossibleWorldWrap> entry : repairSourceTargetPair.entrySet()) {
             PossibleWorldWrap source = entry.getKey();
@@ -247,12 +230,13 @@ public class ModelRepairer {
             org.processmining.models.graphbased.directed.petrinet.elements.Transition netTargetTransition = null;
 
             for (org.processmining.models.graphbased.directed.petrinet.elements.Transition netTransition: cloneNet.getTransitions()) {
-                if (netTransition.getLabel().equals(source.stream().findFirst().get().toString())) {
-                    System.out.println("FOUND SOURCE: " + netTransition.getLabel());
+                PossibleWorldWrap pWWTransition = createPossibleWorldWrap(netTransition);
+                if (source.equals(pWWTransition)) {
+                    logger.info("FOUND SOURCE: " + netTransition.getLabel());
                     netSourceTransition = netTransition;
                 }
-                if (netTransition.getLabel().equals(target.stream().findFirst().get().toString())) {
-                    System.out.println("FOUND TARGET: " + netTransition.getLabel());
+                if (target.equals(pWWTransition)) {
+                    logger.info("FOUND TARGET: " + netTransition.getLabel());
                     netTargetTransition = netTransition;
                 }
             }
@@ -264,38 +248,38 @@ public class ModelRepairer {
         PetrinetGraph syncedNet = Repairer.putSyncPoints(cloneNet, netRepairPair);
 
         try {
-            Optional<InformationWrapper> syncedWrapperOptional = checkIfCandidateFullyConformsToRules(informationWrapper.getDeclarativeAutomaton(), (Petrinet) syncedNet, "after_sync");
+            InformationWrapper syncedWrapperOptional = wrapCandidate(informationWrapper.getFormula(), (Petrinet) syncedNet, "after_sync");
 
-            PetrinetUtils.exportPetriNetToPNML("test.pnml", syncedNet);
-            if (syncedWrapperOptional.isPresent() && syncedWrapperOptional.get().getSemiBadStates().isEmpty()) {
-                System.out.println("AND BRANCHES HAVE BEEN SUCCESSFULLY REPAIRED!");
-                String repairedFileName = syncedNet.getLabel() + "_repaired_fully.pnml";
+            if (syncedWrapperOptional != null && syncedWrapperOptional.getSemiBadStates().isEmpty()) {
+                logger.info("AND BRANCHES HAVE BEEN SUCCESSFULLY REPAIRED!");
+                String repairedFileName = "test_nets/"+syncedNet.getLabel() + "_repaired_fully_1.pnml";
                 PetrinetUtils.exportPetriNetToPNML(repairedFileName, syncedNet);
-                AutomatonUtils.checkLanguage(informationWrapper.getProceduralAutomaton(), informationWrapper.getDeclarativeAutomaton(), (Petrinet) syncedNet);
+                return (Petrinet) syncedNet;
             } else {
                 //Let's try to put sync points one by one.
                 Boolean oneGroupRepaired = false;
 
                 for (Map.Entry<PossibleWorldWrap, PossibleWorldWrap> entry : repairSourceTargetPair.entrySet()) {
-                    System.out.println(entry.getValue() + " repair group: ");
-                    oneGroupRepaired = checkIfGroupHasBeenRepaired(informationWrapper.getDeclarativeAutomaton(), entry.getValue(), (Petrinet) syncedNet, "one_by_one");
+                    logger.info(entry.getValue() + " repair group: ");
+                    oneGroupRepaired = checkIfGroupHasBeenRepaired(informationWrapper.getFormula(), entry.getValue(), (Petrinet) syncedNet, "one_by_one");
                     if (oneGroupRepaired) {
-                        InformationWrapper oneGroupRepairedWrapper = new InformationWrapper(informationWrapper.getDeclarativeAutomaton(), syncedNet);
-                        AutomatonUtils.getSyncPoints(oneGroupRepairedWrapper);
+                        InformationWrapper oneGroupRepairedWrapper = new InformationWrapper(informationWrapper.getFormula(), syncedNet);
+                        syncedNet = AutomatonUtils.getSyncPoints(oneGroupRepairedWrapper);
                     }
                 }
 
                 if (!oneGroupRepaired) {
-                    PetrinetUtils.exportPetriNetToPNML("test_repair_before_flattening.pnml", syncedNet);
-                    System.out.println("Going into flattening area!");
+                    logger.info("Going into flattening area!");
 
                     Petrinet repairedPetriNet = ModelRepairer.repairProcedural(informationWrapper);
                     if (repairedPetriNet != null) {
-                        String repairedFileName = repairedPetriNet.getLabel() + "_repaired_fully.pnml";
+                        String repairedFileName = "test_nets/"+repairedPetriNet.getLabel() + "_repaired_fully_2.pnml";
                         PetrinetUtils.exportPetriNetToPNML(repairedFileName, repairedPetriNet);
-                        AutomatonUtils.checkLanguage(informationWrapper.getProceduralAutomaton(), informationWrapper.getDeclarativeAutomaton(), (Petrinet) syncedNet);
+
+                        return repairedPetriNet;
                     } else {
-                        System.out.println("THIS MODEL CAN NOT BE REPAIRED!");
+                        logger.info("THIS MODEL CAN NOT BE REPAIRED!");
+                        return null;
                     }
                 }
 
@@ -308,23 +292,15 @@ public class ModelRepairer {
         }
 
 
+        return (Petrinet) syncedNet;
     }
 
-    private static org.processmining.models.graphbased.directed.petrinet.elements.Transition getTransitionFromPN(Petrinet net, Transition automatonTransition) {
-        PossibleWorldWrap psw = (PossibleWorldWrap) automatonTransition.label();
-        String automatonTransitionLabel = psw.toString();
-        Collection<org.processmining.models.graphbased.directed.petrinet.elements.Transition> pnTransitions = net.getTransitions();
-        for (org.processmining.models.graphbased.directed.petrinet.elements.Transition pnTransition : pnTransitions) {
-            String label = pnTransition.getLabel();
-            Proposition proposition = new Proposition(label);
-            List<Proposition> propositions = new ArrayList<>();
-            propositions.add(proposition);
-            PossibleWorldWrap pnPsw = new PossibleWorldWrap(propositions);
-            if (psw.equals(pnPsw)) {
-                return pnTransition;
-            }
-        }
-        return null;
+    private static PossibleWorldWrap createPossibleWorldWrap(org.processmining.models.graphbased.directed.petrinet.elements.Transition netTransition) {
+        List<Proposition> propList = new ArrayList<>();
+        Proposition prop = new Proposition(netTransition.getLabel());
+        propList.add(prop);
+        PossibleWorldWrap pw = new PossibleWorldWrap(propList);
+        return pw;
     }
 
     private static Place getPlaceFromCloneNet(Petrinet net, Place p) {
