@@ -141,17 +141,14 @@ public class Repairer {
                         if (getNodeType(net, t).equals(PetrinetNodeType.ANDSPLIT)) {
                             //TODO: this is temporary ugly hack to keep the block-structure. A better way needs to be figured out to avoid synchronising at an AND split.
                             logger.info("Dealing with an and split...");
-                            Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> inEdges = net.getInEdges(t);
-                            PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode> firstEdge = inEdges.iterator().next();
-                            PetrinetNode firstPlace = firstEdge.getSource();
-                            Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> inEdgesToFirstPlace = net.getInEdges(firstPlace);
-                            PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode> edgeToFirstPlace = inEdgesToFirstPlace.iterator().next();
-                            PetrinetNode source = edgeToFirstPlace.getSource();
-                            anotherTarget = (Transition) source;
+                            anotherTarget = addHiddenTransitionForSync(net, t);
+                        } else if (getNodeType(net, t).equals(PetrinetNodeType.ANDJOINSPLIT)) {
+                            Transition hiddenTransitionForSync = addHiddenTransitionForSync(net, t);
+                            addHiddenTransitionForSync(net, hiddenTransitionForSync);
+                            anotherTarget = hiddenTransitionForSync;
                         } else {
                             anotherTarget = (Transition) node;
                         }
-
                     } else {
                         Place p = (Place) node;
                         Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> inEdges = net.getInEdges(p);
@@ -171,19 +168,43 @@ public class Repairer {
         return anotherTarget;
     }
 
+    private static Transition addHiddenTransitionForSync(PetrinetGraph net, Transition t) {
+        Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> inEdges = net.getInEdges(t);
+        List<Place> incomingPlaces = new ArrayList<>();
+        for (PetrinetEdge e : inEdges) {
+            incomingPlaces.add((Place) e.getSource());
+        }
+        for (Place p : incomingPlaces) {
+            net.removeArc(p,t);
+        }
+        Transition hiddenTransition = net.addTransition("");
+        hiddenTransition.setInvisible(true);
+        Place placeAfterHiddenTransition = net.addPlace("p");
+        net.addArc(placeAfterHiddenTransition,t);
+        net.addArc(hiddenTransition, placeAfterHiddenTransition);
+        for (Place p : incomingPlaces) {
+            net.addArc(p,hiddenTransition);
+        }
+        return hiddenTransition;
+    }
+
     private static Stack<PetrinetNode> getPrevOfBloc(PetrinetGraph net, Transition t) {
         Stack<PetrinetNode> stack = new Stack<>();
         List<PetrinetNode> visited = new ArrayList<>();
-        return getPrevOfBloc(net, t, visited, stack);
+        Stack<Integer> levelStack = new Stack<>();
+        Integer level = 0;
+        return getPrevOfBloc(net, t, visited, stack, levelStack, level);
     }
 
     private static Stack<PetrinetNode> getNextOfBloc(PetrinetGraph net, Transition t) {
         Stack<PetrinetNode> stack = new Stack<>();
         List<PetrinetNode> visited = new ArrayList<>();
-        return getNextOfBloc(net, t, visited, stack);
+        Stack<Integer> levelStack = new Stack<>();
+        Integer level = 0;
+        return getNextOfBloc(net, t, visited, stack, levelStack, level);
     }
 
-    private static Stack<PetrinetNode> getNextOfBloc(PetrinetGraph net, PetrinetNode t, List<PetrinetNode> visited, Stack<PetrinetNode> stack) {
+    private static Stack<PetrinetNode> getNextOfBloc(PetrinetGraph net, PetrinetNode t, List<PetrinetNode> visited, Stack<PetrinetNode> stack, Stack<Integer> levelStack, Integer level) {
         Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> outEdges = net.getOutEdges(t);
         visited.add(t);
         if (outEdges.isEmpty()) {
@@ -195,8 +216,8 @@ public class Repairer {
                 PetrinetNode node = (PetrinetNode) edge.getTarget();
 
                 if (!visited.contains(node)) {
-                    makeDecisionAboutKeepingNode(net, stack, node, true);
-                    getNextOfBloc(net, node, visited, stack);
+                    makeDecisionAboutKeepingNode(net, stack, levelStack, level, node, true);
+                    getNextOfBloc(net, node, visited, stack, levelStack, level);
                 }
 
             }
@@ -205,7 +226,7 @@ public class Repairer {
         return stack;
     }
 
-    private static Stack<PetrinetNode> getPrevOfBloc(PetrinetGraph net, PetrinetNode t, List<PetrinetNode> visited, Stack<PetrinetNode> stack) {
+    private static Stack<PetrinetNode> getPrevOfBloc(PetrinetGraph net, PetrinetNode t, List<PetrinetNode> visited, Stack<PetrinetNode> stack, Stack<Integer> levelStack, Integer level) {
         Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> inEdges = net.getInEdges(t);
         visited.add(t);
         if (inEdges.isEmpty()) {
@@ -217,8 +238,8 @@ public class Repairer {
                 PetrinetNode node = (PetrinetNode) edge.getSource();
 
                 if (!visited.contains(node)) {
-                    makeDecisionAboutKeepingNode(net, stack, node, false);
-                    getPrevOfBloc(net, node, visited, stack);
+                    makeDecisionAboutKeepingNode(net, stack, levelStack, level, node, false);
+                    getPrevOfBloc(net, node, visited, stack, levelStack, level);
                 }
 
 
@@ -228,81 +249,117 @@ public class Repairer {
         return stack;
     }
 
-    private static void makeDecisionAboutKeepingNode(PetrinetGraph net, Stack<PetrinetNode> stack, PetrinetNode node, boolean forward) {
+    private static void makeDecisionAboutKeepingNode(PetrinetGraph net, Stack<PetrinetNode> stack, Stack<Integer> levelStack, Integer level, PetrinetNode node, boolean forward) {
         PetrinetNodeType nodeType = getNodeType(net, node);
         if (!nodeType.equals(PetrinetNodeType.NODE)) {
             if (nodeType.equals(PetrinetNodeType.XORSPLIT)) {
                 if (stack.size() >= 1) {
                     PetrinetNode lastNode = stack.peek();
+                    Integer lastLevel = levelStack.peek();
                     PetrinetNodeType lastNodeType = getNodeType(net, lastNode);
                     if (!forward) {
-                        if (lastNodeType.equals(PetrinetNodeType.XORJOIN) || lastNodeType.equals(PetrinetNodeType.XORJOINSPLIT)) {
+                        level++;
+                        if (lastNodeType.equals(PetrinetNodeType.XORJOIN)) {
                             stack.pop();
+                            levelStack.pop();
+                        } else if (lastNodeType.equals(PetrinetNodeType.XORJOINSPLIT)) {
+                            popFromStacksIfLevelIsSame(stack, levelStack, level, lastLevel);
                         } else {
-                            stack.push(node);
+                            pushToStacks(stack, levelStack, level, node);
                         }
                     } else {
-                        stack.push(node);
+                        pushToStacks(stack, levelStack, level, node);
                     }
                 } else {
-                    stack.push(node);
+                    pushToStacks(stack, levelStack, level, node);
                 }
 
             } else if (nodeType.equals(PetrinetNodeType.XORJOIN)) {
                 if (stack.size() >= 1) {
                     PetrinetNode lastNode = stack.peek();
+                    Integer lastLevel = levelStack.peek();
                     PetrinetNodeType lastNodeType = getNodeType(net, lastNode);
                     if (forward) {
-                        if (lastNodeType.equals(PetrinetNodeType.XORSPLIT) || lastNodeType.equals(PetrinetNodeType.XORJOINSPLIT)) {
+                        level++;
+                        if (lastNodeType.equals(PetrinetNodeType.XORSPLIT)) {
                             stack.pop();
+                            levelStack.pop();
+                        } else if (lastNodeType.equals(PetrinetNodeType.XORJOINSPLIT)) {
+                            popFromStacksIfLevelIsSame(stack, levelStack, level, lastLevel);
                         } else {
-                            stack.push(node);
+                            pushToStacks(stack, levelStack, level, node);
                         }
                     } else {
-                        stack.push(node);
+                        pushToStacks(stack, levelStack, level, node);
                     }
                 } else {
-                    stack.push(node);
+                    pushToStacks(stack, levelStack, level, node);
                 }
             } else if (nodeType.equals(PetrinetNodeType.ANDSPLIT)) {
                 if (stack.size() >= 1) {
                     PetrinetNode lastNode = stack.peek();
+                    Integer lastLevel = levelStack.peek();
                     PetrinetNodeType lastNodeType = getNodeType(net, lastNode);
                     if (!forward) {
-                        if (lastNodeType.equals(PetrinetNodeType.ANDJOIN) || lastNodeType.equals(PetrinetNodeType.ANDJOINSPLIT)) {
+                        level++;
+                        if (lastNodeType.equals(PetrinetNodeType.ANDJOIN)) {
                             stack.pop();
+                            levelStack.pop();
+                        } else if (lastNodeType.equals(PetrinetNodeType.ANDJOINSPLIT)) {
+                            popFromStacksIfLevelIsSame(stack, levelStack, level, lastLevel);
                         } else {
-                            stack.push(node);
+                            pushToStacks(stack, levelStack, level, node);
                         }
                     } else {
-                        stack.push(node);
+                        pushToStacks(stack, levelStack, level, node);
                     }
                 } else {
-                    stack.push(node);
+                    pushToStacks(stack, levelStack, level, node);
                 }
             } else if (nodeType.equals(PetrinetNodeType.ANDJOIN)) {
                 if (stack.size() >= 1) {
                     PetrinetNode lastNode = stack.peek();
+                    Integer lastLevel = levelStack.peek();
                     PetrinetNodeType lastNodeType = getNodeType(net, lastNode);
                     //System.out.println("last: " + lastNode + " type: " + lastNodeType);
                     if (forward) {
-                        if (lastNodeType.equals(PetrinetNodeType.ANDSPLIT) || lastNodeType.equals(PetrinetNodeType.ANDJOINSPLIT)) {
+                        level++;
+                        if (lastNodeType.equals(PetrinetNodeType.ANDSPLIT)) {
                             stack.pop();
+                            levelStack.pop();
+                        } else if (lastNodeType.equals(PetrinetNodeType.ANDJOINSPLIT)) {
+                            popFromStacksIfLevelIsSame(stack, levelStack, level, lastLevel);
                         } else {
-                            stack.push(node);
+                            pushToStacks(stack, levelStack, level, node);
                         }
                     } else {
-                        stack.push(node);
+                        pushToStacks(stack, levelStack, level, node);
                     }
                 } else {
-                    stack.push(node);
+                    pushToStacks(stack, levelStack, level, node);
                 }
+            } else if (nodeType.equals(PetrinetNodeType.ANDJOINSPLIT)) {
+                stack.push(node);
+                pushToStacks(stack, levelStack, level, node);
+                levelStack.push(level);
             } else {
                 if (!stack.contains(node)) {
-                    stack.push(node);
+                    pushToStacks(stack, levelStack, level, node);
                 }
 
             }
+        }
+    }
+
+    private static void pushToStacks(Stack<PetrinetNode> stack, Stack<Integer> levelStack, Integer level, PetrinetNode node) {
+        stack.push(node);
+        levelStack.push(level);
+    }
+
+    private static void popFromStacksIfLevelIsSame(Stack<PetrinetNode> stack, Stack<Integer> levelStack, Integer level, Integer lastLevel) {
+        if (lastLevel.equals(level)) {
+            stack.pop();
+            levelStack.pop();
         }
     }
 
