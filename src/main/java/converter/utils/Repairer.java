@@ -139,9 +139,9 @@ public class Repairer {
                         Transition t = (Transition) node;
                         logger.info(getNodeType(net, t));
                         if (getNodeType(net, t).equals(PetrinetNodeType.ANDSPLIT)) {
-                            //TODO: this is temporary ugly hack to keep the block-structure. A better way needs to be figured out to avoid synchronising at an AND split.
                             logger.info("Dealing with an and split...");
-                            anotherTarget = addHiddenTransitionForSync(net, t);
+                            Transition transition = replaceWithHiddenTransition(net, t);
+                            anotherTarget = addHiddenTransitionForSync(net, transition);
                         } else if (getNodeType(net, t).equals(PetrinetNodeType.ANDJOINSPLIT)) {
                             Transition hiddenTransitionForSync = addHiddenTransitionForSync(net, t);
                             addHiddenTransitionForSync(net, hiddenTransitionForSync);
@@ -166,6 +166,26 @@ public class Repairer {
             }
         }
         return anotherTarget;
+    }
+
+    private static Transition replaceWithHiddenTransition(PetrinetGraph net, Transition t) {
+        Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> outEdges = net.getOutEdges(t);
+        List<Place> outgoingPlaces = new ArrayList<>();
+        for (PetrinetEdge e : outEdges) {
+            outgoingPlaces.add((Place) e.getTarget());
+        }
+        for (Place p : outgoingPlaces) {
+            net.removeArc(t,p);
+        }
+        Transition hiddenTransition = net.addTransition("");
+        hiddenTransition.setInvisible(true);
+        Place placeBeforeHiddenTransition = net.addPlace("p");
+        net.addArc(t,placeBeforeHiddenTransition);
+        net.addArc(placeBeforeHiddenTransition, hiddenTransition);
+        for (Place p : outgoingPlaces) {
+            net.addArc(hiddenTransition,p);
+        }
+        return hiddenTransition;
     }
 
     private static Transition addHiddenTransitionForSync(PetrinetGraph net, Transition t) {
