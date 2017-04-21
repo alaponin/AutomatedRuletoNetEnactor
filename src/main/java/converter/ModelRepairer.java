@@ -229,28 +229,7 @@ public class ModelRepairer {
         Petrinet cloneNet = PetrinetFactory.clonePetrinet((Petrinet) informationWrapper.getNet());
 
         logger.info("Repair: " + repairSourceTargetPair);
-        Map<org.processmining.models.graphbased.directed.petrinet.elements.Transition, org.processmining.models.graphbased.directed.petrinet.elements.Transition> netRepairPair = new HashMap<>();
-        for (Map.Entry<PossibleWorldWrap, PossibleWorldWrap> entry : repairSourceTargetPair.entrySet()) {
-            PossibleWorldWrap source = entry.getKey();
-            PossibleWorldWrap target = entry.getValue();
-            org.processmining.models.graphbased.directed.petrinet.elements.Transition netSourceTransition = null;
-            org.processmining.models.graphbased.directed.petrinet.elements.Transition netTargetTransition = null;
-
-            for (org.processmining.models.graphbased.directed.petrinet.elements.Transition netTransition: cloneNet.getTransitions()) {
-                PossibleWorldWrap pWWTransition = Repairer.createPossibleWorldWrap(netTransition);
-                if (source.equals(pWWTransition)) {
-                    logger.info("FOUND SOURCE: " + netTransition.getLabel());
-                    netSourceTransition = netTransition;
-                }
-                if (target.equals(pWWTransition)) {
-                    logger.info("FOUND TARGET: " + netTransition.getLabel());
-                    netTargetTransition = netTransition;
-                }
-            }
-            if (netSourceTransition != null && netTargetTransition != null) {
-                netRepairPair.put(netSourceTransition, netTargetTransition);
-            }
-        }
+        Map<org.processmining.models.graphbased.directed.petrinet.elements.Transition, org.processmining.models.graphbased.directed.petrinet.elements.Transition> netRepairPair = getSourceAndTargetTransition(repairSourceTargetPair, cloneNet);
 
         PetrinetGraph syncedNet = Repairer.putSyncPoints(cloneNet, netRepairPair);
 
@@ -302,6 +281,31 @@ public class ModelRepairer {
         return (Petrinet) syncedNet;
     }
 
+    private static Map<org.processmining.models.graphbased.directed.petrinet.elements.Transition, org.processmining.models.graphbased.directed.petrinet.elements.Transition> getSourceAndTargetTransition(Map<PossibleWorldWrap, PossibleWorldWrap> repairSourceTargetPair, Petrinet cloneNet) {
+        Map<org.processmining.models.graphbased.directed.petrinet.elements.Transition, org.processmining.models.graphbased.directed.petrinet.elements.Transition> netRepairPair = new HashMap<>();
+        for (Map.Entry<PossibleWorldWrap, PossibleWorldWrap> entry : repairSourceTargetPair.entrySet()) {
+            PossibleWorldWrap source = entry.getKey();
+            PossibleWorldWrap target = entry.getValue();
+            org.processmining.models.graphbased.directed.petrinet.elements.Transition netSourceTransition = null;
+            org.processmining.models.graphbased.directed.petrinet.elements.Transition netTargetTransition = null;
+
+            for (org.processmining.models.graphbased.directed.petrinet.elements.Transition netTransition: cloneNet.getTransitions()) {
+                PossibleWorldWrap pWWTransition = Repairer.createPossibleWorldWrap(netTransition);
+                if (source.equals(pWWTransition)) {
+                    logger.info("FOUND SOURCE: " + netTransition.getLabel());
+                    netSourceTransition = netTransition;
+                }
+                if (target.equals(pWWTransition)) {
+                    logger.info("FOUND TARGET: " + netTransition.getLabel());
+                    netTargetTransition = netTransition;
+                }
+            }
+            if (netSourceTransition != null && netTargetTransition != null) {
+                netRepairPair.put(netSourceTransition, netTargetTransition);
+            }
+        }
+        return netRepairPair;
+    }
 
 
     private static Place getPlaceFromCloneNet(Petrinet net, Place p) {

@@ -9,9 +9,7 @@ import net.sf.tweety.logics.pl.syntax.PropositionalSignature;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
-import org.processmining.models.graphbased.directed.petrinet.PetrinetEdge;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetGraph;
-import org.processmining.models.graphbased.directed.petrinet.PetrinetNode;
 import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
 import org.processmining.models.semantics.petrinet.Marking;
@@ -58,6 +56,7 @@ public class ProceduralRepairer {
         return repairedNet;
     }
 
+    //Could be necessary for the ProM plug-in.
     public static Object[] repairWithMarking(Petrinet net, String ltlFormula) throws Exception {
         Petrinet repairedNet = repair(net, ltlFormula);
         Set<Place> places = new HashSet<>();
@@ -85,7 +84,7 @@ public class ProceduralRepairer {
             }
         }
 
-        return removeLoops(updatedFormula, net, informationWrapper.getLtlfARW(), informationWrapper);
+        return identifyAndRemoveLoops(updatedFormula, net, informationWrapper.getLtlfARW(), informationWrapper);
     }
 
     private static void createTsFile(InformationWrapper informationWrapper) {
@@ -96,7 +95,7 @@ public class ProceduralRepairer {
         TSFileConverter.TS2File(AutomatonOperationUtils.getTrimmed(informationWrapper.getReducedIntersection()), tsFileName);
     }
 
-    private static InformationWrapper removeLoops(String ltlFormula, PetrinetGraph net, LTLfAutomatonResultWrapper ltlfARW, InformationWrapper informationWrapper) throws Exception {
+    private static InformationWrapper identifyAndRemoveLoops(String ltlFormula, PetrinetGraph net, LTLfAutomatonResultWrapper ltlfARW, InformationWrapper informationWrapper) throws Exception {
         PropositionalSignature ltlSignature = ltlfARW.getLtlfFormula().getSignature();
         List<Integer> tarjanCyclesOfLtl = new ArrayList<>();
         TarjanAlgorithmPN sscPN = new TarjanAlgorithmPN(net);
