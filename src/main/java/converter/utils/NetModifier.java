@@ -17,9 +17,9 @@ import java.util.*;
 /**
  * Created by arnelaponin on 03/11/2016.
  */
-public class Repairer {
+public class NetModifier {
 
-    private static Logger logger = LogManager.getLogger(Repairer.class);
+    private static Logger logger = LogManager.getLogger(NetModifier.class);
 
     public static PetrinetGraph putSyncPoints(PetrinetGraph net, Map<Transition, Transition> repairSourceTargetPair) {
 

@@ -44,7 +44,7 @@ public class ModelRepairer {
         List<PossibleWorldWrap> unusedTransitionLabels = MarkingAnalyser.getUnusedTransitionLabels(procedural, trimmedIntersectionWithMarkings);
         logger.info("Unused transitions: " + unusedTransitionLabels);
         if (!unusedTransitionLabels.isEmpty()) {
-            net = Repairer.removeTransitions(net, unusedTransitionLabels);
+            net = NetModifier.removeTransitions(net, unusedTransitionLabels);
         }
 
         return (Petrinet) net;
@@ -101,7 +101,7 @@ public class ModelRepairer {
                                 Petrinet currentNetClone = PetrinetFactory.clonePetrinet(currentNet);
                                 Petrinet originalNetClone = PetrinetFactory.clonePetrinet((Petrinet) net);
 
-                                Petrinet repairedCandidateFromOriginal = (Petrinet) Repairer.repair(originalNetClone, getPlaceFromCloneNet(originalNetClone, troubledPlace), getPlaceFromCloneNet(originalNetClone, problematicPlace));
+                                Petrinet repairedCandidateFromOriginal = (Petrinet) NetModifier.repair(originalNetClone, getPlaceFromCloneNet(originalNetClone, troubledPlace), getPlaceFromCloneNet(originalNetClone, problematicPlace));
                                 logger.info("Checking whether candidate has been fully repaired. ");
                                 InformationWrapper finalWrapperOptional =
                                         wrapCandidate(informationWrapper.getFormula(), repairedCandidateFromOriginal, "_sync_no_flat");
@@ -119,7 +119,7 @@ public class ModelRepairer {
                                 //TODO: The order with which we take troubled places might matter.
 
                                 if (troubledPlaceClone != null && problematicPlaceClone != null) {
-                                    Petrinet repairedCandidate = (Petrinet) Repairer.repair(currentNetClone, getPlaceFromCloneNet(currentNetClone, troubledPlace), problematicPlaceClone);
+                                    Petrinet repairedCandidate = (Petrinet) NetModifier.repair(currentNetClone, getPlaceFromCloneNet(currentNetClone, troubledPlace), problematicPlaceClone);
 
                                     String explanation = "removing_" + problematicPlace.getLabel();
                                     logger.info("Repair has been finished...");
@@ -231,7 +231,7 @@ public class ModelRepairer {
         logger.info("Repair: " + repairSourceTargetPair);
         Map<org.processmining.models.graphbased.directed.petrinet.elements.Transition, org.processmining.models.graphbased.directed.petrinet.elements.Transition> netRepairPair = getSourceAndTargetTransition(repairSourceTargetPair, cloneNet);
 
-        PetrinetGraph syncedNet = Repairer.putSyncPoints(cloneNet, netRepairPair);
+        PetrinetGraph syncedNet = NetModifier.putSyncPoints(cloneNet, netRepairPair);
 
         try {
             InformationWrapper syncedWrapperOptional = wrapCandidate(informationWrapper.getFormula(), (Petrinet) syncedNet, "after_sync");
@@ -290,7 +290,7 @@ public class ModelRepairer {
             org.processmining.models.graphbased.directed.petrinet.elements.Transition netTargetTransition = null;
 
             for (org.processmining.models.graphbased.directed.petrinet.elements.Transition netTransition: cloneNet.getTransitions()) {
-                PossibleWorldWrap pWWTransition = Repairer.createPossibleWorldWrap(netTransition);
+                PossibleWorldWrap pWWTransition = NetModifier.createPossibleWorldWrap(netTransition);
                 if (source.equals(pWWTransition)) {
                     logger.info("FOUND SOURCE: " + netTransition.getLabel());
                     netSourceTransition = netTransition;

@@ -149,7 +149,7 @@ public class ProceduralRepairer {
         Petrinet updatedNet = null;
         for (Place p1 : newP1List) {
             for (Place p2 : newP2List) {
-                updatedNet = Repairer.removeTransitionBetween2Places(net, p1, p2);
+                updatedNet = NetModifier.removeTransitionBetween2Places(net, p1, p2);
             }
         }
         return updatedNet;
