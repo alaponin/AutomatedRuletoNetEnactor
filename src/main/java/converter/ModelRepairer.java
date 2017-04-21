@@ -199,6 +199,32 @@ public class ModelRepairer {
 
     }
 
+    public static Petrinet getSyncPoints(InformationWrapper informationWrapper) {
+        PetrinetGraph net = informationWrapper.getNet();
+        MyAutomaton procedural = informationWrapper.getProceduralAutomaton();
+        Automaton reducedIntersection = informationWrapper.getReducedIntersection();
+        Map<PossibleWorldWrap, PossibleWorldWrap> repairSourceTargetPair = new HashMap<>();
+        List<State> badStates = informationWrapper.getBadStates();
+        Map<State, List<Transition>> semiBadStates = informationWrapper.getSemiBadStates();
+        SemiBadStateAnalyser semiBadStateAnalyser = new SemiBadStateAnalyser(net, semiBadStates, reducedIntersection);
+        Map<PossibleWorldWrap, State> lastSemiBadStateMap = semiBadStateAnalyser.getLastSemiBadState();
+        for (Map.Entry<PossibleWorldWrap, State> entry : lastSemiBadStateMap.entrySet()) {
+            PossibleWorldWrap transitionLabel = entry.getKey();
+            State automatonState = entry.getValue();
+            Set<Transition> outGoingTransitions = reducedIntersection.delta(automatonState);
+            for (Transition outGoingTransition : outGoingTransitions) {
+                State target = outGoingTransition.end();
+                if (!badStates.contains(target) && !semiBadStates.containsKey(target)) {
+                    if (!AutomatonUtils.checkXorness(net, procedural, (PossibleWorldWrap) outGoingTransition.label(), transitionLabel)) {
+                        repairSourceTargetPair.put((PossibleWorldWrap) outGoingTransition.label(), transitionLabel);
+                    }
+                }
+            }
+        }
+
+        return addSyncPointsToParallelBranches(informationWrapper, repairSourceTargetPair);
+    }
+
     public static Petrinet addSyncPointsToParallelBranches(InformationWrapper informationWrapper, Map<PossibleWorldWrap, PossibleWorldWrap> repairSourceTargetPair) {
         Petrinet cloneNet = PetrinetFactory.clonePetrinet((Petrinet) informationWrapper.getNet());
 
@@ -245,7 +271,7 @@ public class ModelRepairer {
                     oneGroupRepaired = checkIfGroupHasBeenRepaired(informationWrapper.getFormula(), entry.getValue(), (Petrinet) syncedNet, "one_by_one");
                     if (oneGroupRepaired) {
                         InformationWrapper oneGroupRepairedWrapper = new InformationWrapper(informationWrapper.getFormula(), syncedNet);
-                        syncedNet = AutomatonUtils.getSyncPoints(oneGroupRepairedWrapper);
+                        syncedNet = getSyncPoints(oneGroupRepairedWrapper);
                     }
                 }
 

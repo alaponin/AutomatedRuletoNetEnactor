@@ -282,7 +282,7 @@ public class ProceduralRepairer {
 
             AutomatonOperationUtils.colorAutomatonStates(updatedWrapperOptional, "automatons/automaton_coloured_after_xor.gv");
 
-            return AutomatonUtils.getSyncPoints(updatedWrapperOptional);
+            return ModelRepairer.getSyncPoints(updatedWrapperOptional);
         } else {
             String repairedFileName = "test_nets/"+netWithRemovedBranches.getLabel() + "_repaired_fully_3.pnml";
             PetrinetUtils.exportPetriNetToPNML(repairedFileName, netWithRemovedBranches);

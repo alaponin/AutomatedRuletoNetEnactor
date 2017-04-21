@@ -212,33 +212,7 @@ public class AutomatonUtils {
         return toRemove;
     }
 
-    public static Petrinet getSyncPoints(InformationWrapper informationWrapper) {
-        PetrinetGraph net = informationWrapper.getNet();
-        MyAutomaton procedural = informationWrapper.getProceduralAutomaton();
-        Automaton reducedIntersection = informationWrapper.getReducedIntersection();
-        Map<PossibleWorldWrap, PossibleWorldWrap> repairSourceTargetPair = new HashMap<>();
-        List<State> badStates = informationWrapper.getBadStates();
-        Map<State, List<Transition>> semiBadStates = informationWrapper.getSemiBadStates();
-        SemiBadStateAnalyser semiBadStateAnalyser = new SemiBadStateAnalyser(net, semiBadStates, reducedIntersection);
-        Map<PossibleWorldWrap, State> lastSemiBadStateMap = semiBadStateAnalyser.getLastSemiBadState();
-        for (Map.Entry<PossibleWorldWrap, State> entry : lastSemiBadStateMap.entrySet()) {
-            PossibleWorldWrap transitionLabel = entry.getKey();
-            State automatonState = entry.getValue();
-            Set<Transition> outGoingTransitions = reducedIntersection.delta(automatonState);
-            for (Transition outGoingTransition : outGoingTransitions) {
-                State target = outGoingTransition.end();
-                if (!badStates.contains(target) && !semiBadStates.containsKey(target)) {
-                    if (!checkXorness(net, procedural, (PossibleWorldWrap) outGoingTransition.label(), transitionLabel)) {
-                        repairSourceTargetPair.put((PossibleWorldWrap) outGoingTransition.label(), transitionLabel);
-                    }
-                }
-            }
-        }
-
-        return ModelRepairer.addSyncPointsToParallelBranches(informationWrapper, repairSourceTargetPair);
-    }
-
-    private static boolean checkXorness(PetrinetGraph net, MyAutomaton procedural, PossibleWorldWrap label1, PossibleWorldWrap label2) {
+    public static boolean checkXorness(PetrinetGraph net, MyAutomaton procedural, PossibleWorldWrap label1, PossibleWorldWrap label2) {
         //TODO: This transition label conversion might cause problems.
         String firstLabel = label1.toString().replace("[","").replace("]","");
         String secondLabel = label2.toString().replace("[","").replace("]","");
