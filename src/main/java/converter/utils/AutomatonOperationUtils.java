@@ -77,7 +77,6 @@ public class AutomatonOperationUtils {
         Map<State, List<Transition>> badStatesMap = informationWrapper.getBadStatesWithTransitions();
         Set<State> badStates = badStatesMap.keySet();
         List<List<Transition>> badTransitionsList = new ArrayList(badStatesMap.values());
-        //List<Transition> badTransitions = badTransitionsList.stream().flatMap(List::stream).collect(Collectors.toList());
         List<Transition> badTransitions = new ArrayList<>();
         for (List<Transition> badList : badTransitionsList) {
             badTransitions.addAll(badList);
@@ -90,7 +89,6 @@ public class AutomatonOperationUtils {
         for (List<Transition> semiBadList : troubledTransitionsList) {
             semiBadTransitions.addAll(semiBadList);
         }
-        //List<Transition> semiBadTransitions = troubledTransitionsList.stream().flatMap(List::stream).collect(Collectors.toList());
 
         //TODO:Remove this.
         Automaton trimIntersection = AutomatonOperationUtils.getTrimmed(informationWrapper.getReducedIntersection());

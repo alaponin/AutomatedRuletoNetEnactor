@@ -5,7 +5,6 @@ import converter.automaton.*;
 import converter.petrinet.CanNotConvertPNToAutomatonException;
 import converter.petrinet.NumberOfStatesDoesNotMatchException;
 import converter.utils.*;
-import net.sf.tweety.logics.pl.syntax.Proposition;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
@@ -27,7 +26,7 @@ public class ModelRepairer {
 
     private static Logger logger = LogManager.getLogger(ModelRepairer.class);
 
-    public static Petrinet repairXorBranch(InformationWrapper informationWrapper) throws Exception {
+    public static Petrinet removeUnusedPlacesAndTransitions(InformationWrapper informationWrapper) throws Exception {
         PetrinetGraph net = informationWrapper.getNet();
         MyAutomaton procedural = informationWrapper.getProceduralAutomaton();
         MyAutomaton trimmedIntersectionWithMarkings = informationWrapper.getTrimmedIntersectionWithMarkings();
@@ -45,30 +44,14 @@ public class ModelRepairer {
         List<PossibleWorldWrap> unusedTransitionLabels = MarkingAnalyser.getUnusedTransitionLabels(procedural, trimmedIntersectionWithMarkings);
         logger.info("Unused transitions: " + unusedTransitionLabels);
         if (!unusedTransitionLabels.isEmpty()) {
-            net = removeTransitions(net, unusedTransitionLabels);
+            net = Repairer.removeTransitions(net, unusedTransitionLabels);
         }
 
         return (Petrinet) net;
 
     }
 
-    private static PetrinetGraph removeTransitions(PetrinetGraph net, List<PossibleWorldWrap> unusedTransitionLabels) {
-        List<org.processmining.models.graphbased.directed.petrinet.elements.Transition> transitionsToRemove = new ArrayList<>();
-        for (PossibleWorldWrap transitionLabel : unusedTransitionLabels) {
-            for (org.processmining.models.graphbased.directed.petrinet.elements.Transition transition : net.getTransitions()) {
-                PossibleWorldWrap pw = createPossibleWorldWrap(transition);
-                if (pw.equals(transitionLabel)) {
-                    transitionsToRemove.add(transition);
-                }
-            }
-        }
-        for (org.processmining.models.graphbased.directed.petrinet.elements.Transition t : transitionsToRemove) {
-            net.removeTransition(t);
-        }
-        return net;
-    }
-
-    public static Petrinet repairProcedural(InformationWrapper informationWrapper) throws Exception {
+    public static Petrinet repairByFlattening(InformationWrapper informationWrapper) throws Exception {
         MyAutomaton procedural = informationWrapper.getProceduralAutomaton();
         Automaton reducedIntersection = informationWrapper.getReducedIntersection();
         MyAutomaton trimmedIntersectionWithMarkings = informationWrapper.getTrimmedIntersectionWithMarkings();
@@ -107,11 +90,9 @@ public class ModelRepairer {
 
                     //Last marking, before the token from toRemove place is removed.
                     List<Place> markingFromWhereToRepair = AutomatonUtils.getLastPlacesBeforeTokenMoved(trimmedIntersectionWithMarkings, problematicPlace);
-
                     if (markingFromWhereToRepair != null) {
                         //Places from where the net could be repaired.
                         markingFromWhereToRepair.remove(problematicPlace);
-                        logger.info("Marking from where to repair: " + markingFromWhereToRepair);
                         if (!markingFromWhereToRepair.isEmpty()) {
                             for (Place troubledPlace : markingFromWhereToRepair) {
                                 logger.info("Troubled: " + troubledPlace);
@@ -230,7 +211,7 @@ public class ModelRepairer {
             org.processmining.models.graphbased.directed.petrinet.elements.Transition netTargetTransition = null;
 
             for (org.processmining.models.graphbased.directed.petrinet.elements.Transition netTransition: cloneNet.getTransitions()) {
-                PossibleWorldWrap pWWTransition = createPossibleWorldWrap(netTransition);
+                PossibleWorldWrap pWWTransition = Repairer.createPossibleWorldWrap(netTransition);
                 if (source.equals(pWWTransition)) {
                     logger.info("FOUND SOURCE: " + netTransition.getLabel());
                     netSourceTransition = netTransition;
@@ -271,7 +252,7 @@ public class ModelRepairer {
                 if (!oneGroupRepaired) {
                     logger.info("Going into flattening area!");
 
-                    Petrinet repairedPetriNet = ModelRepairer.repairProcedural(informationWrapper);
+                    Petrinet repairedPetriNet = ModelRepairer.repairByFlattening(informationWrapper);
                     if (repairedPetriNet != null) {
                         String repairedFileName = "test_nets/"+repairedPetriNet.getLabel() + "_repaired_fully_2.pnml";
                         PetrinetUtils.exportPetriNetToPNML(repairedFileName, repairedPetriNet);
@@ -295,13 +276,7 @@ public class ModelRepairer {
         return (Petrinet) syncedNet;
     }
 
-    private static PossibleWorldWrap createPossibleWorldWrap(org.processmining.models.graphbased.directed.petrinet.elements.Transition netTransition) {
-        List<Proposition> propList = new ArrayList<>();
-        Proposition prop = new Proposition(netTransition.getLabel());
-        propList.add(prop);
-        PossibleWorldWrap pw = new PossibleWorldWrap(propList);
-        return pw;
-    }
+
 
     private static Place getPlaceFromCloneNet(Petrinet net, Place p) {
         for (Place place : net.getPlaces()) {

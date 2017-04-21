@@ -32,11 +32,15 @@ public class Main {
         String ltlFormula3_3 = "(G (activity_g -> (X (! activity_g U activity_b))))";
 
         //ltlFormula_practical_example use practical_running.pnml as petriNetFile
-        String ltlFormula_practical_example = "((!check_medical_history) WU ask_for_major_updates) && ((!predict_risk_behaviour) WU ask_for_major_updates)  && (!(F ask_applicant_to_recheck))";
+        String ltlFormula_practical_example = "((!check_medical_history) WU ask_for_updates) && ((!predict_risk) WU ask_for_updates)  && (!(F ask_to_recheck))";
+        String ltlFormula_prac_short = "((!cmh) WU afu) && ((!pr) WU afu)  && (!(F atr))";
 
-        String petriNetFile = "final_data/Original_Models/model1.pnml";
+        String ltlFormulaX = "((!C) WU B)";
+
+        String petriNetFile = "data/model2.pnml";
         List<String> modelRules = new ArrayList<>();
-        modelRules.add(ltlFormula1_1);
+        modelRules.add(ltlFormula2_4);
+
 
         int count = 0;
         File dir = new File("final_nets");
@@ -54,7 +58,12 @@ public class Main {
             Petrinet net = (Petrinet) Extractor.extractPetriNet(petriNetFile);
             Petrinet repairedNet = ProceduralRepairer.repair(net, rule);
         }
-
+        /*Petrinet net = (Petrinet) Extractor.extractPetriNet(petriNetFile);
+        Petrinet net_v1 = (Petrinet) Extractor.extractPetriNet("data/sync_v1.pnml");
+        Petrinet net_v2 = (Petrinet) Extractor.extractPetriNet("data/sync_v2.pnml");
+        AutomatonUtils.checkLanguage(net, ltlFormula_practical_example, net_v1);
+        AutomatonUtils.checkLanguage(net, ltlFormula_practical_example, net_v2);*/
+        //Tester.runModel3LanguageCheck();
 
     }
 

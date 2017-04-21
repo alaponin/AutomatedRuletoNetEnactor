@@ -1,6 +1,8 @@
 package converter.utils;
 
+import automaton.PossibleWorldWrap;
 import converter.petrinet.PetrinetNodeType;
+import net.sf.tweety.logics.pl.syntax.Proposition;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
@@ -128,7 +130,6 @@ public class Repairer {
         if (!prevTargetBloc.isEmpty()) {
             if (prevTargetBloc.size() >= prevSourceBloc.size()) {
                 prevTargetBloc.removeAll(prevSourceBloc);
-                System.out.println("All possible prevs for target: " + prevTargetBloc);
                 logger.info("All possible prevs for target: " + prevTargetBloc);
                 if (!prevTargetBloc.isEmpty()) {
                     //TODO:Order of taking nodes might be wrong!!!!
@@ -273,91 +274,14 @@ public class Repairer {
         PetrinetNodeType nodeType = getNodeType(net, node);
         if (!nodeType.equals(PetrinetNodeType.NODE)) {
             if (nodeType.equals(PetrinetNodeType.XORSPLIT)) {
-                if (stack.size() >= 1) {
-                    PetrinetNode lastNode = stack.peek();
-                    Integer lastLevel = levelStack.peek();
-                    PetrinetNodeType lastNodeType = getNodeType(net, lastNode);
-                    if (!forward) {
-                        level++;
-                        if (lastNodeType.equals(PetrinetNodeType.XORJOIN)) {
-                            stack.pop();
-                            levelStack.pop();
-                        } else if (lastNodeType.equals(PetrinetNodeType.XORJOINSPLIT)) {
-                            popFromStacksIfLevelIsSame(stack, levelStack, level, lastLevel);
-                        } else {
-                            pushToStacks(stack, levelStack, level, node);
-                        }
-                    } else {
-                        pushToStacks(stack, levelStack, level, node);
-                    }
-                } else {
-                    pushToStacks(stack, levelStack, level, node);
-                }
+                doStackOperations(net, stack, levelStack, level, node, !forward, PetrinetNodeType.XORJOIN, PetrinetNodeType.XORJOINSPLIT);
 
             } else if (nodeType.equals(PetrinetNodeType.XORJOIN)) {
-                if (stack.size() >= 1) {
-                    PetrinetNode lastNode = stack.peek();
-                    Integer lastLevel = levelStack.peek();
-                    PetrinetNodeType lastNodeType = getNodeType(net, lastNode);
-                    if (forward) {
-                        level++;
-                        if (lastNodeType.equals(PetrinetNodeType.XORSPLIT)) {
-                            stack.pop();
-                            levelStack.pop();
-                        } else if (lastNodeType.equals(PetrinetNodeType.XORJOINSPLIT)) {
-                            popFromStacksIfLevelIsSame(stack, levelStack, level, lastLevel);
-                        } else {
-                            pushToStacks(stack, levelStack, level, node);
-                        }
-                    } else {
-                        pushToStacks(stack, levelStack, level, node);
-                    }
-                } else {
-                    pushToStacks(stack, levelStack, level, node);
-                }
+                doStackOperations(net, stack, levelStack, level, node, forward, PetrinetNodeType.XORSPLIT, PetrinetNodeType.XORJOINSPLIT);
             } else if (nodeType.equals(PetrinetNodeType.ANDSPLIT)) {
-                if (stack.size() >= 1) {
-                    PetrinetNode lastNode = stack.peek();
-                    Integer lastLevel = levelStack.peek();
-                    PetrinetNodeType lastNodeType = getNodeType(net, lastNode);
-                    if (!forward) {
-                        level++;
-                        if (lastNodeType.equals(PetrinetNodeType.ANDJOIN)) {
-                            stack.pop();
-                            levelStack.pop();
-                        } else if (lastNodeType.equals(PetrinetNodeType.ANDJOINSPLIT)) {
-                            popFromStacksIfLevelIsSame(stack, levelStack, level, lastLevel);
-                        } else {
-                            pushToStacks(stack, levelStack, level, node);
-                        }
-                    } else {
-                        pushToStacks(stack, levelStack, level, node);
-                    }
-                } else {
-                    pushToStacks(stack, levelStack, level, node);
-                }
+                doStackOperations(net, stack, levelStack, level, node, !forward, PetrinetNodeType.ANDJOIN, PetrinetNodeType.ANDJOINSPLIT);
             } else if (nodeType.equals(PetrinetNodeType.ANDJOIN)) {
-                if (stack.size() >= 1) {
-                    PetrinetNode lastNode = stack.peek();
-                    Integer lastLevel = levelStack.peek();
-                    PetrinetNodeType lastNodeType = getNodeType(net, lastNode);
-                    //System.out.println("last: " + lastNode + " type: " + lastNodeType);
-                    if (forward) {
-                        level++;
-                        if (lastNodeType.equals(PetrinetNodeType.ANDSPLIT)) {
-                            stack.pop();
-                            levelStack.pop();
-                        } else if (lastNodeType.equals(PetrinetNodeType.ANDJOINSPLIT)) {
-                            popFromStacksIfLevelIsSame(stack, levelStack, level, lastLevel);
-                        } else {
-                            pushToStacks(stack, levelStack, level, node);
-                        }
-                    } else {
-                        pushToStacks(stack, levelStack, level, node);
-                    }
-                } else {
-                    pushToStacks(stack, levelStack, level, node);
-                }
+                doStackOperations(net, stack, levelStack, level, node, forward, PetrinetNodeType.ANDSPLIT, PetrinetNodeType.ANDJOINSPLIT);
             } else if (nodeType.equals(PetrinetNodeType.ANDJOINSPLIT)) {
                 stack.push(node);
                 pushToStacks(stack, levelStack, level, node);
@@ -368,6 +292,36 @@ public class Repairer {
                 }
 
             }
+        }
+    }
+
+    private static void doStackOperations(PetrinetGraph net,
+                                          Stack<PetrinetNode> stack,
+                                          Stack<Integer> levelStack,
+                                          Integer level,
+                                          PetrinetNode node,
+                                          boolean forward,
+                                          PetrinetNodeType joinOrSplit,
+                                          PetrinetNodeType joinAndSplit) {
+        if (stack.size() >= 1) {
+            PetrinetNode lastNode = stack.peek();
+            Integer lastLevel = levelStack.peek();
+            PetrinetNodeType lastNodeType = getNodeType(net, lastNode);
+            if (forward) {
+                level++;
+                if (lastNodeType.equals(joinOrSplit)) {
+                    stack.pop();
+                    levelStack.pop();
+                } else if (lastNodeType.equals(joinAndSplit)) {
+                    popFromStacksIfLevelIsSame(stack, levelStack, level, lastLevel);
+                } else {
+                    pushToStacks(stack, levelStack, level, node);
+                }
+            } else {
+                pushToStacks(stack, levelStack, level, node);
+            }
+        } else {
+            pushToStacks(stack, levelStack, level, node);
         }
     }
 
@@ -435,16 +389,7 @@ public class Repairer {
         }
     }
 
-    private static Place getPlaceFromCloneNet(Petrinet net, Place p) {
-        for (Place place : net.getPlaces()) {
-            if (place.getLabel().equalsIgnoreCase(p.getLabel())) {
-                return place;
-            }
-        }
-        return null;
-    }
-
-    public static PetrinetGraph addSyncPointInsteadOfFlattening(PetrinetGraph originalNet, Place troubledPlace, Place problematicPlace) {
+    /*public static PetrinetGraph addSyncPointInsteadOfFlattening(PetrinetGraph originalNet, Place troubledPlace, Place problematicPlace) {
 
         Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> edgesInPlace = originalNet.getInEdges(troubledPlace);
         Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> edgesOutPlace = originalNet.getOutEdges(troubledPlace);
@@ -470,7 +415,6 @@ public class Repairer {
         if (transitionConnectedPlace != null && !danglingTransitions.isEmpty()) {
             for (Transition dangling : danglingTransitions) {
                 netRepairPair.put(transitionConnectedPlace, dangling);
-                System.out.println("NET REPAIR PAIR: " + netRepairPair);
                 logger.info("NET REPAIR PAIR: " + netRepairPair);
             }
             petrinetGraph = putSyncPoints(originalNet, netRepairPair);
@@ -478,29 +422,24 @@ public class Repairer {
             PetrinetUtils.exportPetriNetToPNML(syncFileName, petrinetGraph);
         }
         return petrinetGraph;
-    }
+    }*/
 
     public static PetrinetGraph repair(PetrinetGraph net, Place troubledPlace, Place problematicPlace) throws Exception {
-        System.out.println("Place: " + troubledPlace);
         logger.info("Place: " + troubledPlace);
-        System.out.println("Problematic place to remove: " + problematicPlace);
         logger.info("Problematic place to remove: " + problematicPlace);
 
         String fileName = "test_nets/test_repair_" + net.hashCode()+ "_" + troubledPlace.getLabel() + "_" + problematicPlace + ".pnml";
-        System.out.println("File name: " + fileName);
         logger.info("File name: " + fileName);
 
         Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> edges = net.getOutEdges(troubledPlace);
 
         List<Transition> danglingTransitions = precedingTransOfToRemoveHasOneOutgoingArc(net, problematicPlace);
 
-        System.out.println("Dangling transitions: " + danglingTransitions);
         logger.info("Dangling transitions: " + danglingTransitions);
 
         for (PetrinetEdge edge : edges) {
             PetrinetNode source = (PetrinetNode) edge.getSource();
             PetrinetNode target = (PetrinetNode) edge.getTarget();
-            System.out.println("Removing arc between: " + source + " and " + target);
             logger.info("Removing arc between: " + source + " and " + target);
             net.removeArc(source, target);
         }
@@ -518,20 +457,16 @@ public class Repairer {
                 Place newlyAddedPlace = net.addPlace(placeName);
                 for (Transition dangling : danglingTransitions) {
                     net.addArc(dangling, newlyAddedPlace);
-                    System.out.println("1. ADDING arc between: " + dangling + " and " + newlyAddedPlace);
                     logger.info("1. ADDING arc between: " + dangling + " and " + newlyAddedPlace);
                 }
                 net.addArc(newlyAddedPlace, tBeforePlace);
-                System.out.println("2. ADDING arc between: " + newlyAddedPlace + " and " + tBeforePlace);
                 logger.info("2. ADDING arc between: " + newlyAddedPlace + " and " + tBeforePlace);
             }
 
             for (PetrinetEdge edgeOut : outEdges) {
                 Transition transition = (Transition) edgeOut.getTarget();
-                System.out.println("Will be adding to this transition: " + transition);
                 logger.info("Will be adding to this transition: " + transition);
                 net.addArc(troubledPlace,transition);
-                System.out.println("3. ADDING arc between: " + troubledPlace + " and " + transition);
                 logger.info("3. ADDING arc between: " + troubledPlace + " and " + transition);
             }
 
@@ -540,11 +475,10 @@ public class Repairer {
 
                 Transition transition = (Transition) edgeOut.getTarget();
 
-                System.out.println("4. ADDING arc between: " + troubledPlace + " and " + transition);
                 logger.info("4. ADDING arc between: " + troubledPlace + " and " + transition);
                 net.addArc(troubledPlace, transition);
             }
-            System.out.println("Removing: " + problematicPlace);
+            logger.info("Removing: " + problematicPlace);
             net.removePlace(problematicPlace);
         }
 
@@ -560,7 +494,6 @@ public class Repairer {
             Transition transition = (Transition) inEdge.getSource();
             Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> outEdgesOfTransition = net.getOutEdges(transition);
             if (outEdgesOfTransition.size() == 1) {
-                System.out.println("PRECEDING TRANSITION: " + transition);
                 logger.info("PRECEDING TRANSITION: " + transition);
                 if (!precedingTransitions.contains(transition)) {
                     precedingTransitions.add(transition);
@@ -568,6 +501,30 @@ public class Repairer {
             }
         }
         return precedingTransitions;
+    }
+
+    public static PetrinetGraph removeTransitions(PetrinetGraph net, List<PossibleWorldWrap> unusedTransitionLabels) {
+        List<org.processmining.models.graphbased.directed.petrinet.elements.Transition> transitionsToRemove = new ArrayList<>();
+        for (PossibleWorldWrap transitionLabel : unusedTransitionLabels) {
+            for (org.processmining.models.graphbased.directed.petrinet.elements.Transition transition : net.getTransitions()) {
+                PossibleWorldWrap pw = createPossibleWorldWrap(transition);
+                if (pw.equals(transitionLabel)) {
+                    transitionsToRemove.add(transition);
+                }
+            }
+        }
+        for (org.processmining.models.graphbased.directed.petrinet.elements.Transition t : transitionsToRemove) {
+            net.removeTransition(t);
+        }
+        return net;
+    }
+
+    public static PossibleWorldWrap createPossibleWorldWrap(org.processmining.models.graphbased.directed.petrinet.elements.Transition netTransition) {
+        List<Proposition> propList = new ArrayList<>();
+        Proposition prop = new Proposition(netTransition.getLabel());
+        propList.add(prop);
+        PossibleWorldWrap pw = new PossibleWorldWrap(propList);
+        return pw;
     }
 
 }

@@ -201,6 +201,7 @@ public class AutomatonUtils {
     public static Queue<Place> findPlacesToRemoveFromSemiBadMarkings(Map<Transition, TransitionMarkingPair> semiBadStatesWithMarkings) {
         Queue<Place> toRemove = new LinkedList<>();
         for (Map.Entry<Transition, TransitionMarkingPair> entry : semiBadStatesWithMarkings.entrySet()) {
+            logger.info("Semi-bad and bad state pair: " + entry);
             List<Place> placesToRemove = entry.getValue().getDifferenceSourceAndTarget();
             for (Place p : placesToRemove) {
                 if (!toRemove.contains(p)) {

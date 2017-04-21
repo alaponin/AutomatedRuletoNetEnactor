@@ -118,8 +118,4 @@ public class TarjanAlgorithmPN {
         }
         return sscNumber;
     }
-
-    public boolean areTwoTransitionsPartOfSameCycle(String transitionLabel1, String transitionLabel2) {
-        return whichCycleIsTransitionPartOf(transitionLabel1).equals(whichCycleIsTransitionPartOf(transitionLabel2));
-    }
 }

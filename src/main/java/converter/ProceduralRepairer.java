@@ -273,14 +273,14 @@ public class ProceduralRepairer {
 
     private static Petrinet repairXorSyncFlattening(InformationWrapper informationWrapper) throws Exception {
         informationWrapper.colourAutomaton();
-        Petrinet netWithRemovedBranches = ModelRepairer.repairXorBranch(informationWrapper);
+        Petrinet netWithRemovedBranches = ModelRepairer.removeUnusedPlacesAndTransitions(informationWrapper);
 
         InformationWrapper updatedWrapperOptional = ModelRepairer.wrapCandidate(
                 informationWrapper.getFormula(), netWithRemovedBranches, "after_removing_unused_xor");
 
         if (updatedWrapperOptional != null && !updatedWrapperOptional.getSemiBadStates().isEmpty()) {
 
-            AutomatonOperationUtils.colorAutomatonStates(informationWrapper, "automatons/automaton_coloured_after_xor.gv");
+            AutomatonOperationUtils.colorAutomatonStates(updatedWrapperOptional, "automatons/automaton_coloured_after_xor.gv");
 
             return AutomatonUtils.getSyncPoints(updatedWrapperOptional);
         } else {

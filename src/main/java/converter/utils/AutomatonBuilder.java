@@ -99,19 +99,6 @@ public class AutomatonBuilder {
         automaton.addMarkingList(targetState, new ArrayList<>(targetState.getMarking().baseSet()));
     }
 
-    public boolean isTransitionPresent(Marking source, String transitionLabel, Marking target) {
-        MarkingState sourceState = (MarkingState) stateFactory.create(source);
-        MarkingState targetState = (MarkingState) stateFactory.create(target);
-
-        Set<Transition> transitions = automaton.deltaFrom(sourceState, targetState);
-        for (Transition t : transitions) {
-            if (t.label().equals(transitionLabel)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private TransitionLabel getTransitionLabel(String label) throws NoLabelInPetriNetException {
         TransitionLabel transitionLabel = null;
         Proposition proposition = new Proposition(label);
