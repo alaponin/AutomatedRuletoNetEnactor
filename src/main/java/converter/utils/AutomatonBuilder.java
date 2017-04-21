@@ -17,8 +17,6 @@ import rationals.NoSuchStateException;
 import rationals.Transition;
 
 import java.util.*;
-import java.util.stream.Collectors;
-
 /**
  * Created by arnelaponin on 05/09/16.
  */

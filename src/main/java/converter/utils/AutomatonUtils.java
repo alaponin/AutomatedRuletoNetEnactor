@@ -1,7 +1,6 @@
 package converter.utils;
 
 import automaton.PossibleWorldWrap;
-import converter.ModelRepairer;
 import converter.automaton.*;
 import converter.epsilon.MyEpsilonTransitionRemover;
 import converter.petrinet.NumberOfStatesDoesNotMatchException;
