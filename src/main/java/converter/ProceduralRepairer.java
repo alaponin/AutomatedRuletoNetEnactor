@@ -150,72 +150,10 @@ public class ProceduralRepairer {
         Petrinet updatedNet = null;
         for (Place p1 : newP1List) {
             for (Place p2 : newP2List) {
-                updatedNet = removeTransitionBetween2Places(net, p1, p2);
+                updatedNet = Repairer.removeTransitionBetween2Places(net, p1, p2);
             }
         }
         return updatedNet;
-    }
-
-    private static Petrinet removeTransitionBetween2Places(Petrinet net, Place p1, Place p2) {
-        Place initialPlace = PetrinetUtils.getStartPlace(net);
-        Place finalPlace = PetrinetUtils.getFinalPlace(net);
-
-        if (net.getPlaces().contains(p1) && net.getPlaces().contains(p2)) {
-            Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> outEdges = net.getOutEdges(p1);
-            Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> inEdges = net.getInEdges(p2);
-            List<org.processmining.models.graphbased.directed.petrinet.elements.Transition> p2Transitions = new ArrayList<>();
-            List<org.processmining.models.graphbased.directed.petrinet.elements.Transition> p1Transitions = new ArrayList<>();
-            for (PetrinetEdge edge : outEdges) {
-                p2Transitions.add((Transition) edge.getTarget());
-            }
-
-            for (PetrinetEdge edge : inEdges) {
-                p1Transitions.add((Transition) edge.getSource());
-            }
-            List<org.processmining.models.graphbased.directed.petrinet.elements.Transition> transitions = new ArrayList<>(p2Transitions);
-            transitions.retainAll(p1Transitions);
-            if (!transitions.isEmpty()) {
-                for (Transition t : transitions) {
-                    logger.info("Removing transition: " + t);
-                    net.removeTransition(t);
-                }
-
-            }
-        }
-        List<Place> placesToRemove;
-        List<Transition> transitionsToRemove;
-        do {
-            placesToRemove = new ArrayList<>();
-            transitionsToRemove = new ArrayList<>();
-            for (Place p : net.getPlaces()) {
-                if (!p.equals(initialPlace) && !p.equals(finalPlace)) {
-                    Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> outEdgesFromP = net.getOutEdges(p);
-                    Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> inEdgesFromP = net.getInEdges(p);
-                    if (outEdgesFromP.size() == 0 || inEdgesFromP.size() == 0) {
-                        logger.info("Additionally removing place: " + p);
-                        placesToRemove.add(p);
-                    }
-                }
-            }
-            for (Place p : placesToRemove) {
-                net.removePlace(p);
-            }
-
-            for (Transition t : net.getTransitions()) {
-                Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> outEdgesFromT = net.getOutEdges(t);
-                Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> inEdgesFromT = net.getInEdges(t);
-                if (outEdgesFromT.size() == 0 || inEdgesFromT.size() == 0) {
-                    logger.info("Additionally removing transition: " + t);
-                    transitionsToRemove.add(t);
-                }
-            }
-            for (Transition t : transitionsToRemove) {
-                net.removeTransition(t);
-            }
-
-        } while (!placesToRemove.isEmpty() || !transitionsToRemove.isEmpty());
-
-        return net;
     }
 
     private static String checkIfActivitiesAreInSeparateXorBranches(String ltlFormula, PropositionalSignature signature, LTLfAutomatonResultWrapper ltlfARW, Automaton declareAutomaton, InformationWrapper informationWrapper) {
